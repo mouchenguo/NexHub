@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>{{ title }} · NexHub 管理后台</title>
+    <link rel="stylesheet" href="/static/admin.css">
+    <script defer src="/static/admin.js"></script>
+</head>
+<body>
+<div class="layout">
+    <aside class="sidebar">
+        <a class="brand" href="/admin">
+            <span class="brand-mark">N</span>
+            <span class="brand-text"><strong>NexHub</strong><small>ADMIN CONSOLE</small></span>
+        </a>
+        <div class="nav-group">
+            <div class="nav-label">工作台</div>
+            <nav class="nav">
+                <a href="/admin" class="{{ 'active' if active == 'dashboard' else '' }}"><span class="ico">◫</span>仪表盘</a>
+                <a href="/admin/users" class="{{ 'active' if active == 'users' else '' }}"><span class="ico">◉</span>用户管理</a>
+                <a href="/admin/shares" class="{{ 'active' if active == 'shares' else '' }}"><span class="ico">◈</span>共享资源</a>
+            </nav>
+            <div class="nav-label">系统</div>
+            <nav class="nav">
+                <a href="/admin/oss" class="{{ 'active' if active == 'oss' else '' }}"><span class="ico">☁</span>OSS 配置</a>
+                <a href="/admin/nps" class="{{ 'active' if active == 'nps' else '' }}"><span class="ico">⇄</span>NPS 穿透</a>
+                <a href="/admin/logs" class="{{ 'active' if active == 'logs' else '' }}"><span class="ico">▦</span>全局日志</a>
+                <a href="/admin/settings" class="{{ 'active' if active == 'settings' else '' }}"><span class="ico">⚙</span>系统设置</a>
+            </nav>
+        </div>
+        <div class="sidebar-footer">
+            <div class="sidebar-version">v{{ version }} · ECS</div>
+            <a class="logout-link" href="/admin/logout">退出登录</a>
+        </div>
+    </aside>
+
+    <main class="main">
+        <header class="topbar">
+            <div>
+                <h1>{{ title }}</h1>
+                <p class="sub">NexHub 文件共享与 RDP 客户端 · 管理员专用</p>
+            </div>
+            <div class="top-actions">
+                <span class="admin-chip"><span class="status-dot"></span>{{ admin.display_name or admin.username }}</span>
+                <a class="btn btn-ghost btn-sm" href="/admin/logout">退出</a>
+            </div>
+        </header>
+
+        <section class="content">
+            {% if message %}
+            <div class="flash {{ message_type }}">{{ message }}</div>
+            {% endif %}
+            {% block content %}{% endblock %}
+        </section>
+    </main>
+</div>
+</body>
+</html>

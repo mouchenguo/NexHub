@@ -1,0 +1,25 @@
+NexHub 服务端一键部署
+========================
+
+文件说明：
+  Deploy-NexHub-Server.bat   双击运行的一键部署入口
+  NexHub-Server-Bundle.zip   服务端程序包
+  install_server.sh          服务端安装/重启脚本
+
+前置条件：
+  - Windows 10/11 已安装 OpenSSH Client（ssh.exe / scp.exe）
+  - 目标 Linux 服务器可以通过 SSH 登录
+  - 建议使用 root 或具备 sudo 权限的账号
+
+使用方法：
+  1. 保持上述三个文件与 NexHub.exe 在同一目录；
+  2. 双击 Deploy-NexHub-Server.bat；
+  3. 按提示填写服务器 IP、SSH 用户名和端口；
+  4. 根据 SSH 提示输入服务器密码；
+  5. 脚本自动上传、安装依赖、重启 nexhub 服务并执行健康检查。
+
+说明：
+  - 脚本不会覆盖服务器上的 .env 和 data 目录；
+  - 已有 /opt/nexhub/server/app 会先备份为 app.bak-时间戳；
+  - 如果服务器已有 nexhub.service，会继续使用现有服务定义；
+  - 首次部署且没有 .env 时，会从 .env.example 复制，请随后填写生产配置。

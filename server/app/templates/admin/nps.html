@@ -1,0 +1,63 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<div class="two-col">
+    <section class="card">
+        <div class="card-head">
+            <div><h2>nps 服务端状态</h2><p>TCP 探测 Bridge 端口</p></div>
+            <span class="badge {{ 'badge-green' if status.online else 'badge-red' }}">{{ '可达' if status.online else '不可达' }}</span>
+        </div>
+        <div class="status-list">
+            <div><span>Bridge 地址</span><strong>{{ config.server_addr or '未配置' }}:{{ config.server_port }}</strong></div>
+            <div><span>公网域名</span><strong>{{ config.domain or '未配置' }}</strong></div>
+            <div><span>探测结果</span><strong>{{ status.message }}</strong></div>
+            <div><span>管理 API</span><strong>{{ config.api_url or '未配置' }}</strong></div>
+        </div>
+        <div class="inline-info mt-16">nps 的隧道通道由各客户端通过 nps 客户端配置建立；这里可查看活跃的临时共享通道并强制关闭。</div>
+    </section>
+
+    <section class="card">
+        <div class="card-head"><div><h2>穿透配置</h2><p>保存至数据库，供客户端下载与网页代理使用</p></div></div>
+        <form method="post" action="/admin/nps" class="stack">
+            <div class="form-grid">
+                <label>服务端地址<input type="text" name="server_addr" value="{{ config.server_addr }}" placeholder="nps.example.com"></label>
+                <label>Bridge 端口<input type="number" name="server_port" value="{{ config.server_port }}" min="1" max="65535"></label>
+            </div>
+            <label>vkey
+                <input type="password" name="vkey" placeholder="{{ '已配置，留空保持不变' if config.vkey else '未配置' }}" autocomplete="new-password">
+            </label>
+            <label>公网访问域名<input type="text" name="domain" value="{{ config.domain }}" placeholder="https://share.example.com"></label>
+            <label>nps 管理 API<input type="text" name="api_url" value="{{ config.api_url }}" placeholder="http://127.0.0.1:8080"></label>
+            <label>API auth_key
+                <input type="password" name="auth_key" placeholder="{{ '已配置，留空保持不变' if config.auth_key else '对应 nps.conf 的 auth_key' }}" autocomplete="new-password">
+            </label>
+            <button class="btn btn-primary" type="submit">保存 nps 配置</button>
+        </form>
+    </section>
+</div>
+
+<section class="card">
+    <div class="card-head"><div><h2>活跃穿透通道</h2><p>当前活跃的临时共享（{{ tunnels | length }} 个）</p></div></div>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>共享名称</th><th>所有者</th><th>大小</th><th>创建时间</th><th class="right">操作</th></tr></thead>
+            <tbody>
+            {% for tunnel in tunnels %}
+            <tr>
+                <td><strong>{{ tunnel.name }}</strong><small class="block muted">token: {{ tunnel.token[:12] }}…</small></td>
+                <td>@{{ tunnel.owner }}</td>
+                <td>{{ tunnel.total_size | filesize }}</td>
+                <td class="muted">{{ tunnel.created_at | dt }}</td>
+                <td class="right">
+                    <form method="post" action="/admin/nps/tunnels/{{ tunnel.id }}/cancel" data-confirm="确定关闭通道「{{ tunnel.name }}」？">
+                        <button class="btn btn-sm btn-danger" type="submit">关闭通道</button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="empty">暂无活跃的临时穿透通道</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

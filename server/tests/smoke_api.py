@@ -1,0 +1,248 @@
+"""服务端 API / 管理后台冒烟测试（开发用）。
+
+运行：
+    python tests/smoke_api.py
+"""
+from __future__ import annotations
+
+import base64
+import os
+import shutil
+import sys
+from pathlib import Path
+from unittest.mock import patch
+
+SERVER_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = SERVER_ROOT.parent
+DATA_DIR = PROJECT_ROOT / ".tmp" / "server_test_data"
+if DATA_DIR.exists():
+    shutil.rmtree(DATA_DIR)
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+os.environ["NEXHUB_DATA_DIR"] = str(DATA_DIR)
+os.environ["NEXHUB_DB_PATH"] = str(DATA_DIR / "test.db")
+os.environ["NEXHUB_WEB_BASE"] = ""
+os.environ["NEXHUB_ADMIN_PASSWORD"] = "Admin@12345"
+os.environ["NEXHUB_DEMO_PASSWORD"] = "demo1234"
+sys.path.insert(0, str(SERVER_ROOT))
+
+from fastapi.testclient import TestClient  # noqa: E402
+
+from app import db  # noqa: E402
+from app.main import app  # noqa: E402
+
+
+def check(condition: bool, message: str) -> None:
+    if not condition:
+        raise AssertionError(message)
+    print("PASS:", message)
+
+
+def auth(token: str) -> dict:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def main() -> int:
+    with TestClient(app, follow_redirects=False) as client:
+        health = client.get("/api/health")
+        check(health.status_code == 200 and health.json()["status"] == "ok", "健康检查")
+
+        login = client.post("/api/auth/login", json={"username": "demo", "password": "demo1234"})
+        check(login.status_code == 200, "演示账号登录")
+        demo_headers = auth(login.json()["token"])
+
+        register = client.post(
+            "/api/auth/register",
+            json={"username": "tester", "password": "test1234", "display_name": "测试用户"},
+        )
+        check(register.status_code == 200, "注册新用户")
+        test_headers = auth(register.json()["token"])
+
+        avatar_png = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        )
+        avatar_upload = client.post(
+            "/api/account/avatar",
+            files={"file": ("avatar.png", avatar_png, "image/png")},
+            headers=demo_headers,
+        )
+        check(
+            avatar_upload.status_code == 200
+            and avatar_upload.json()["user"]["has_avatar"],
+            "上传本地头像",
+        )
+        avatar_get = client.get("/api/account/avatar", headers=demo_headers)
+        check(
+            avatar_get.status_code == 200
+            and avatar_get.headers.get("content-type", "").startswith("image/png")
+            and "inline" in avatar_get.headers.get("content-disposition", ""),
+            "头像以内联图片返回",
+        )
+        check(
+            client.get("/api/account/avatar").status_code == 401,
+            "头像接口需要鉴权",
+        )
+
+        payload = {
+            "name": "自动化测试共享",
+            "description": "smoke test",
+            "storage_type": "oss",
+            "local_url": "",
+            "files": [
+                {"path": "docs/hello.txt", "size": 11},
+                {"path": "data.csv", "size": 9},
+            ],
+        }
+        created = client.post("/api/shares", json=payload, headers=demo_headers)
+        check(created.status_code == 200, "发布 OSS 共享")
+        share = created.json()
+        share_id = share["id"]
+        check(share["public_url"].endswith(share["token"]), "生成网页分享链接")
+
+        upload1 = client.post(
+            f"/api/shares/{share_id}/files",
+            params={"path": "docs/hello.txt"},
+            content=b"hello world",
+            headers={**demo_headers, "Content-Type": "application/octet-stream"},
+        )
+        check(upload1.status_code == 200, "上传 OSS 文件 1")
+        upload2 = client.post(
+            f"/api/shares/{share_id}/files",
+            params={"path": "data.csv"},
+            content=b"a,b\n1,2\n",
+            headers={**demo_headers, "Content-Type": "application/octet-stream"},
+        )
+        check(upload2.status_code == 200, "上传 OSS 文件 2")
+
+        manifest = client.get(f"/api/shares/{share_id}/manifest", headers=demo_headers)
+        check(manifest.status_code == 200 and len(manifest.json()["files"]) == 2, "获取 manifest")
+        public_manifest = client.get(f"/api/public/shares/{share['token']}/manifest")
+        check(public_manifest.status_code == 200, "公开 manifest 无需登录")
+
+        download = client.get(
+            f"/api/shares/{share_id}/download",
+            params={"path": "docs/hello.txt"},
+            headers=demo_headers,
+        )
+        check(download.status_code == 200 and download.content == b"hello world", "鉴权下载")
+        public_download = client.get(
+            f"/api/public/shares/{share['token']}/download", params={"path": "data.csv"}
+        )
+        check(public_download.status_code == 200 and b"a,b" in public_download.content, "公开下载")
+
+        page = client.get(f"/s/{share['token']}")
+        check(page.status_code == 200 and "自动化测试共享" in page.text, "网页端分享页")
+
+        mine = client.get("/api/shares", params={"scope": "mine"}, headers=demo_headers)
+        check(mine.status_code == 200 and len(mine.json()["items"]) == 1, "我的共享列表")
+        square = client.get("/api/shares", params={"scope": "public"}, headers=test_headers)
+        check(square.status_code == 200 and len(square.json()["items"]) == 1, "共享广场列表")
+
+        dashboard = client.get("/api/dashboard", headers=demo_headers)
+        check(dashboard.status_code == 200 and dashboard.json()["active_shares"] == 1, "仪表盘统计")
+        records = client.get("/api/account/downloads", headers=demo_headers)
+        check(records.status_code == 200 and len(records.json()["items"]) >= 1, "下载记录")
+
+        db.set_setting("nps_server_addr", "nps.test")
+        db.set_setting("nps_server_port", "8024")
+        with (
+            patch(
+                "app.routers.tunnels.create_client",
+                return_value={"id": 501, "vkey": "test", "remark": "NexHub/tester"},
+            ) as nps_create,
+            patch("app.routers.tunnels.update_client") as nps_update,
+            patch("app.routers.tunnels.set_client_enabled") as nps_state,
+            patch("app.routers.tunnels.delete_client") as nps_delete,
+        ):
+            tunnel = client.post(
+                "/api/tunnels",
+                json={"name": "测试隧道", "local_host": "127.0.0.1", "local_port": 8080},
+                headers=test_headers,
+            )
+            check(tunnel.status_code == 200 and tunnel.json().get("vkey"), "创建 NPS 隧道")
+            tunnel_id = tunnel.json()["id"]
+            check(nps_create.called, "创建隧道调用 NPS API")
+            listed = client.get("/api/tunnels", headers=test_headers)
+            check(listed.status_code == 200 and len(listed.json()["items"]) == 1, "NPS 隧道列表")
+            edited = client.patch(
+                f"/api/tunnels/{tunnel_id}",
+                json={"name": "重命名隧道", "local_host": "127.0.0.1", "local_port": 8081},
+                headers=test_headers,
+            )
+            check(edited.status_code == 200 and edited.json()["name"] == "重命名隧道", "编辑 NPS 隧道")
+            check(nps_update.called, "编辑隧道同步 NPS 备注")
+            stopped = client.post(f"/api/tunnels/{tunnel_id}/stop", headers=test_headers)
+            check(stopped.status_code == 200 and not stopped.json()["enabled"], "停用 NPS 隧道")
+            started = client.post(f"/api/tunnels/{tunnel_id}/start", headers=test_headers)
+            check(started.status_code == 200 and started.json()["enabled"], "启用 NPS 隧道")
+            check(nps_state.call_count == 2, "隧道启停调用 NPS API")
+            removed = client.delete(f"/api/tunnels/{tunnel_id}", headers=test_headers)
+            check(removed.status_code == 200 and nps_delete.called, "删除 NPS 隧道")
+            other = client.get("/api/tunnels", headers=demo_headers)
+            check(other.status_code == 200 and other.json()["items"] == [], "隧道按用户隔离")
+            check(
+                client.get("/api/tunnels").status_code == 401,
+                "隧道接口需要鉴权",
+            )
+
+        redirect = client.get("/admin")
+        check(
+            redirect.status_code == 303 and redirect.headers.get("location") == "/admin/login",
+            "后台未登录跳转",
+        )
+
+        login_page = client.get("/admin/login")
+        check(login_page.status_code == 200, "后台登录页")
+        admin_login = client.post(
+            "/admin/login",
+            data={"username": "admin", "password": "Admin@12345"},
+        )
+        check(admin_login.status_code == 303, "管理员登录")
+        admin_dashboard = client.get("/admin", cookies=admin_login.cookies)
+        check(admin_dashboard.status_code == 200 and "仪表盘" in admin_dashboard.text, "后台仪表盘")
+        for path, keyword in (
+            ("/admin/users", "用户管理"),
+            ("/admin/shares", "共享资源"),
+            ("/admin/oss", "OSS 系统配置"),
+            ("/admin/nps", "服务器与 NPS 配置"),
+            ("/admin/logs", "全局日志"),
+            ("/admin/settings", "系统设置"),
+        ):
+            response = client.get(path, cookies=admin_login.cookies)
+            check(response.status_code == 200 and keyword in response.text, f"后台页面 {path}")
+        share_logs = client.get(f"/admin/shares/{share_id}/logs", cookies=admin_login.cookies)
+        check(share_logs.status_code == 200, "共享访问日志")
+
+        reset = client.post(
+            "/admin/users/2/reset-password",
+            data={"new_password": "newdemo123"},
+            cookies=admin_login.cookies,
+        )
+        check(reset.status_code == 303, "管理员重置用户密码")
+        old_login = client.post(
+            "/api/auth/login", json={"username": "demo", "password": "demo1234"}
+        )
+        new_login = client.post(
+            "/api/auth/login", json={"username": "demo", "password": "newdemo123"}
+        )
+        check(old_login.status_code == 401 and new_login.status_code == 200, "重置后密码生效")
+
+        cancel = client.post(f"/api/shares/{share_id}/cancel", headers=demo_headers)
+        check(cancel.status_code == 200, "取消共享")
+        invalid_manifest = client.get(f"/api/public/shares/{share['token']}/manifest")
+        check(invalid_manifest.status_code == 404, "取消后公开 manifest 失效")
+
+        rotate = client.post(
+            "/admin/settings/rotate-secret",
+            data={"new_secret": "a-new-secret-with-enough-length"},
+            cookies=admin_login.cookies,
+        )
+        check(rotate.status_code == 303, "轮换后端签名密钥")
+        expired = client.get("/admin", cookies=admin_login.cookies)
+        check(expired.status_code == 303, "轮换后管理会话失效")
+
+        print("\nALL SERVER CHECKS PASSED")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

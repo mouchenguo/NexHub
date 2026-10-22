@@ -1,0 +1,40 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<div class="page-head">
+    <a class="btn btn-ghost btn-sm" href="/admin/shares">← 返回共享列表</a>
+</div>
+<section class="card share-summary">
+    <div>
+        <span class="badge {{ 'badge-purple' if share.storage_type == 'oss' else 'badge-cyan' }}">{{ 'OSS 长期缓存' if share.storage_type == 'oss' else '临时穿透' }}</span>
+        <h2 class="mt-8">{{ share.name }}</h2>
+        <p class="muted">@{{ share.owner_username }} · {{ share.file_count }} 个文件 · {{ share.total_size | filesize }} · 下载 {{ share.downloads }} 次</p>
+    </div>
+    <div class="right">
+        {% if share.status == 'active' %}<span class="badge badge-green">活跃</span>{% else %}<span class="badge badge-gray">已取消</span>{% endif %}
+        <p class="muted mt-8">创建于 {{ share.created_at | dt }}</p>
+    </div>
+</section>
+
+<section class="card">
+    <div class="card-head"><div><h2>访问 / 下载日志</h2><p>最多显示最近 300 条记录</p></div></div>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>时间</th><th>用户</th><th>IP</th><th>文件</th><th>大小</th><th>状态</th></tr></thead>
+            <tbody>
+            {% for log in logs %}
+            <tr>
+                <td class="muted">{{ log.created_at | dt }}</td>
+                <td>{{ ('@' + log.username) if log.username else '网页访客' }}</td>
+                <td class="mono">{{ log.ip or '--' }}</td>
+                <td>{{ log.file_path }}</td>
+                <td>{{ log.file_size | filesize }}</td>
+                <td><span class="badge badge-green">{{ log.status }}</span></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="empty">暂无访问记录</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

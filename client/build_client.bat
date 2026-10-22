@@ -1,0 +1,29 @@
+@echo off
+setlocal
+cd /d "%~dp0"
+
+if not exist "nexhub\resources\npc\npc.exe" (
+    echo [ERROR] Missing nexhub\resources\npc\npc.exe
+    echo Put the complete npc folder into client\nexhub\resources\npc first.
+    pause
+    exit /b 1
+)
+
+python -m pip install -r requirements-build.txt
+if errorlevel 1 exit /b 1
+
+python -m PyInstaller ^
+  --noconfirm --clean --onefile --windowed ^
+  --name NexHub ^
+  --icon "nexhub\resources\nexhub.ico" ^
+  --add-data "nexhub\resources;nexhub\resources" ^
+  --collect-all qfluentwidgets ^
+  --hidden-import nexhub.npc_admin ^
+  --hidden-import win32crypt ^
+  main.py
+
+if errorlevel 1 exit /b 1
+echo.
+echo Built: %CD%\dist\NexHub.exe
+echo NPC resources are embedded in the onefile executable.
+pause

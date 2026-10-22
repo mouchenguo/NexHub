@@ -1,0 +1,57 @@
+name: Build Windows Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        working-directory: client
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt -r requirements-build.txt
+
+      - name: Build NexHub.exe
+        working-directory: client
+        run: |
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name NexHub --icon "nexhub\resources\nexhub.ico" --add-data "nexhub\resources;nexhub\resources" --collect-all qfluentwidgets --hidden-import nexhub.npc_admin --hidden-import win32crypt main.py
+
+      - name: Name release executable
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path "client/nexhub/paths.py" -Pattern 'VERSION = "([^"]+)"').Matches.Groups[1].Value
+          Copy-Item "client/dist/NexHub.exe" "client/dist/NexHub-v$version.exe" -Force
+          "VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NexHub-Windows
+          path: client/dist/NexHub-v${{ env.VERSION }}.exe
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            client/dist/NexHub-v${{ env.VERSION }}.exe
+            release/NexHub-Server-Deploy.zip
+            release/NexHub-Server-Bundle.zip
+            release/index.html
+            release/latest.json
+          generate_release_notes: true

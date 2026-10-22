@@ -1,0 +1,56 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<section class="card">
+    <div class="card-head">
+        <div><h2>共享资源</h2><p>共 {{ shares | length }} 条记录 · 可强制关闭或删除违规内容</p></div>
+        <form method="get" action="/admin/shares" class="filter-row">
+            <input type="search" name="q" value="{{ q }}" placeholder="搜索名称 / 用户名">
+            <select name="status">
+                <option value="" {{ 'selected' if not status else '' }}>全部状态</option>
+                <option value="active" {{ 'selected' if status == 'active' else '' }}>活跃</option>
+                <option value="cancelled" {{ 'selected' if status == 'cancelled' else '' }}>已取消</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" type="submit">筛选</button>
+        </form>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+            <tr><th>共享</th><th>所有者</th><th>类型</th><th>大小</th><th>文件</th><th>下载</th><th>状态</th><th>创建时间</th><th class="right">操作</th></tr>
+            </thead>
+            <tbody>
+            {% for share in shares %}
+            <tr>
+                <td>
+                    <strong>{{ share.name }}</strong>
+                    {% if share.description %}<small class="block muted">{{ share.description }}</small>{% endif %}
+                </td>
+                <td>@{{ share.owner_username }}</td>
+                <td>{% if share.storage_type == 'oss' %}<span class="badge badge-purple">OSS 长期</span>{% else %}<span class="badge badge-cyan">临时穿透</span>{% endif %}</td>
+                <td>{{ share.total_size | filesize }}</td>
+                <td>{{ share.file_count }}</td>
+                <td>{{ share.downloads }}</td>
+                <td>{% if share.status == 'active' %}<span class="badge badge-green">活跃</span>{% else %}<span class="badge badge-gray">已取消</span>{% endif %}</td>
+                <td class="muted">{{ share.created_at | dt }}</td>
+                <td class="right">
+                    <div class="action-row">
+                        <a class="btn btn-sm btn-ghost" href="/admin/shares/{{ share.id }}/logs">访问日志</a>
+                        {% if share.status == 'active' %}
+                        <form method="post" action="/admin/shares/{{ share.id }}/cancel" data-confirm="确定关闭共享「{{ share.name }}」？访问链接会立即失效。">
+                            <button class="btn btn-sm btn-secondary" type="submit">关闭</button>
+                        </form>
+                        {% endif %}
+                        <form method="post" action="/admin/shares/{{ share.id }}/delete" data-confirm="确定永久删除共享「{{ share.name }}」？OSS 缓存也会被清理。">
+                            <button class="btn btn-sm btn-danger" type="submit">删除</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="9" class="empty">暂无共享资源</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

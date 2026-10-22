@@ -1,0 +1,71 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<div class="two-col">
+    <section class="card">
+        <div class="card-head"><div><h2>域名配置</h2><p>用于生成网页端分享链接</p></div></div>
+        <form method="post" action="/admin/settings" class="stack">
+            <label>公网访问域名
+                <input type="text" name="web_base" value="{{ web_base_value }}" placeholder="https://hub.example.com">
+            </label>
+            <p class="muted small">留空时自动使用当前请求地址。反向代理场景建议固定填写，例如 <code>https://share.example.com</code>。</p>
+            <button class="btn btn-primary" type="submit">保存域名</button>
+        </form>
+    </section>
+
+    <section class="card">
+        <div class="card-head"><div><h2>后端签名密钥</h2><p>轮换后全部登录会话立即失效</p></div>
+            <span class="badge {{ 'badge-orange' if secret_is_default else 'badge-green' }}">{{ '使用默认密钥' if secret_is_default else '已轮换' }}</span>
+        </div>
+        <form method="post" action="/admin/settings/rotate-secret" class="stack" data-confirm="轮换密钥会强制所有客户端与管理后台重新登录，确定继续？">
+            <label>新密钥（至少 16 位）
+                <input type="password" name="new_secret" minlength="16" required autocomplete="new-password">
+            </label>
+            <div class="inline-warning">生产环境请在 <code>.env</code> 中设置 NEXHUB_SECRET_KEY，并定期轮换。</div>
+            <button class="btn btn-danger" type="submit">轮换密钥</button>
+        </form>
+    </section>
+</div>
+
+<div class="two-col">
+    <section class="card">
+        <div class="card-head"><div><h2>OSS 凭证状态</h2><p>密钥仅存在于 ECS 环境变量</p></div></div>
+        <div class="kv-list">
+            <div><span>运行模式</span><strong>{{ oss.mode }}</strong></div>
+            <div><span>AccessKey</span><strong>{{ '已配置（隐藏）' if oss.access_key_configured else '未配置' }}</strong></div>
+            <div><span>Bucket</span><strong>{{ oss.bucket or '未配置' }}</strong></div>
+            <div><span>Endpoint</span><strong>{{ oss.endpoint or '未配置' }}</strong></div>
+        </div>
+        <div class="code-block">
+OSS_ENDPOINT=https://oss-cn-hangzhou.aliyuncs.com
+OSS_BUCKET=your-bucket
+OSS_ACCESS_KEY_ID=********
+OSS_ACCESS_KEY_SECRET=********
+OSS_PREFIX=nexhub/shares
+        </div>
+        <p class="muted small">修改环境变量后需重启后端服务。管理后台不会读取或展示密钥明文。</p>
+    </section>
+
+    <section class="card">
+        <div class="card-head"><div><h2>服务端信息</h2><p>部署与数据路径</p></div></div>
+        <div class="kv-list">
+            <div><span>版本</span><strong>v{{ cfg.version }}</strong></div>
+            <div><span>数据库</span><strong class="mono">{{ cfg.db_path }}</strong></div>
+            <div><span>数据目录</span><strong class="mono">{{ cfg.data_dir }}</strong></div>
+            <div><span>Token 有效期</span><strong>{{ cfg.token_ttl_hours }} 小时</strong></div>
+            <div><span>单文件 OSS 上限</span><strong>{{ cfg.max_oss_bytes | filesize }}</strong></div>
+        </div>
+    </section>
+</div>
+
+<section class="card">
+    <div class="card-head"><div><h2>安全与部署建议</h2><p>生产环境上线前逐项确认</p></div></div>
+    <ul class="rules">
+        <li>修改初始管理员密码：在「用户管理」中为 admin 重置强密码。</li>
+        <li>使用 HTTPS 部署管理后台，并设置安全 Cookie：<code>NEXHUB_COOKIE_SECURE=true</code>。</li>
+        <li>使用反向代理限制 <code>/admin</code> 的访问来源（IP 白名单 / VPN）。</li>
+        <li>OSS 密钥仅存放在 ECS 环境变量，切勿提交到 Git 或写入客户端配置。</li>
+        <li>定期备份 <code>{{ cfg.db_path }}</code> 与 OSS 元数据。</li>
+        <li>nps 服务端与管理 API 不要使用弱口令，并按需配置访问控制。</li>
+    </ul>
+</section>
+{% endblock %}

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>管理员登录 · NexHub</title>
+    <link rel="stylesheet" href="/static/admin.css">
+</head>
+<body class="login-body">
+<div class="login-card">
+    <div class="login-brand">
+        <div class="login-brand-top">
+            <span class="brand-mark lg">N</span>
+            <span class="login-brand-name">NexHub</span>
+        </div>
+        <h2>ECS 管理后台</h2>
+        <p>管理工作区账号、共享资源、远程主机、OSS 容量与 nps 穿透配置。</p>
+        <ul>
+            <li><span>◈</span>全局共享与下载日志审计</li>
+            <li><span>☁</span>OSS 容量配额与自动清理</li>
+            <li><span>▤</span>远程主机在线状态</li>
+        </ul>
+        <div class="login-brand-foot">仅管理员可访问 · OSS 密钥不在网页中展示</div>
+    </div>
+    <div class="login-form-panel">
+        <h1>登录管理后台</h1>
+        <p class="login-sub">使用管理员账号登录。普通账号请使用桌面客户端。</p>
+        {% if error %}<div class="flash error">{{ error }}</div>{% endif %}
+        {% if request.query_params.get('msg') %}<div class="flash success">{{ request.query_params.get('msg') }}</div>{% endif %}
+        <form method="post" action="/admin/login" class="stack">
+            <label>管理员账号
+                <input type="text" name="username" value="{{ username or '' }}" autocomplete="username" required autofocus>
+            </label>
+            <label>密码
+                <input type="password" name="password" autocomplete="current-password" required>
+            </label>
+            <button class="btn btn-primary btn-block" type="submit">登录后台</button>
+        </form>
+        <div class="login-hint">默认账号由 <code>NEXHUB_ADMIN_USERNAME</code> / <code>NEXHUB_ADMIN_PASSWORD</code> 初始化，请登录后立即修改密码。</div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>{{ share.name }} · NexHub 分享</title>
+    <link rel="stylesheet" href="/static/public.css">
+</head>
+<body>
+<header class="pub-top">
+    <a class="pub-brand" href="/">
+        <span class="pub-mark">N</span>
+        <span><strong>NexHub</strong><small>FILE SHARE</small></span>
+    </a>
+    <span class="pub-note">无需安装客户端 · Token 鉴权访问</span>
+</header>
+
+<main class="share-shell">
+    <section class="share-hero">
+        <div class="hero-main">
+            <div class="badges">
+                <span class="pill {{ 'purple' if share.storage_type == 'oss' else 'cyan' }}">{{ 'OSS 长期缓存' if share.storage_type == 'oss' else '临时穿透' }}</span>
+                <span class="pill green">共享中</span>
+            </div>
+            <h1>{{ share.name }}</h1>
+            {% if share.description %}<p class="desc">{{ share.description }}</p>{% endif %}
+            <div class="meta">
+                <span>发布者 {{ share.owner_display or share.owner }}</span>
+                <span>{{ share.file_count }} 个文件</span>
+                <span>{{ total_size | filesize }}</span>
+                <span>{{ share.downloads }} 次下载</span>
+            </div>
+        </div>
+        <div class="hero-side">
+            <div class="share-token">TOKEN<br><code>{{ share.token[:16] }}…</code></div>
+        </div>
+    </section>
+
+    {% if share.storage_type == 'oss' %}
+    <div class="notice warning">此共享由 OSS 长期缓存提供，下载会产生外网流量费用。请仅下载需要的文件。</div>
+    {% else %}
+    <div class="notice info">此共享为临时穿透共享，发布者关闭软件或取消共享后将立即失效。</div>
+    {% endif %}
+
+    <section class="files-card">
+        <div class="files-head">
+            <div>
+                <h2>共享文件</h2>
+                <p>点击文件右侧按钮即可下载</p>
+            </div>
+            <input id="file-search" class="search" type="search" placeholder="筛选文件名...">
+        </div>
+        <div class="file-table">
+            <div class="file-row file-header">
+                <span>文件</span><span>大小</span><span></span>
+            </div>
+            {% for file in files %}
+            <div class="file-row" data-name="{{ file.path | lower }}">
+                <span class="file-name"><i>▧</i><span>{{ file.path }}</span></span>
+                <span class="file-size">{{ file.size | filesize }}</span>
+                <span class="file-action">
+                    <a class="download-btn" href="/api/public/shares/{{ share.token }}/download?path={{ file.path | urlencode }}">下载</a>
+                </span>
+            </div>
+            {% else %}
+            <div class="empty">共享中没有文件</div>
+            {% endfor %}
+        </div>
+        <div id="no-result" class="empty" hidden>没有匹配的文件</div>
+    </section>
+
+    <section class="download-all">
+        <div>
+            <h3>需要下载全部文件？</h3>
+            <p>可逐个点击下载，或使用桌面客户端登录后选择性批量下载。</p>
+        </div>
+        <span class="muted">{{ total_size | filesize }} · {{ files | length }} 个文件</span>
+    </section>
+
+    <footer class="share-foot">
+        <span>由 NexHub 提供文件共享服务</span>
+        <span>链接包含访问 token，请勿公开转发</span>
+    </footer>
+</main>
+
+<script>
+const search = document.getElementById('file-search');
+const rows = Array.from(document.querySelectorAll('.file-row[data-name]'));
+const empty = document.getElementById('no-result');
+if (search) {
+  search.addEventListener('input', () => {
+    const q = search.value.trim().toLowerCase();
+    let visible = 0;
+    rows.forEach(row => {
+      const show = !q || row.dataset.name.includes(q);
+      row.hidden = !show;
+      if (show) visible++;
+    });
+    empty.hidden = visible !== 0 || rows.length === 0;
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NexHub · 文件共享与远程主机</title>
+  <meta name="description" content="NexHub 是一款面向 Windows 的文件共享、远程主机和 NPS 内网穿透客户端。">
+  <style>
+    :root {
+      --bg: #10141d;
+      --panel-2: #1d2533;
+      --text: #f2f6ff;
+      --muted: #9aa8bf;
+      --line: rgba(255, 255, 255, .1);
+      --blue: #4f8cff;
+      --purple: #9b7bff;
+      --green: #54d6a0;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 15% 0%, rgba(79, 140, 255, .22), transparent 36rem),
+        radial-gradient(circle at 92% 12%, rgba(155, 123, 255, .16), transparent 30rem),
+        var(--bg);
+      font-family: "Microsoft YaHei UI", "Segoe UI", system-ui, sans-serif;
+      line-height: 1.7;
+    }
+    a { color: inherit; text-decoration: none; }
+    .wrap { width: min(1120px, calc(100% - 40px)); margin: 0 auto; }
+    header {
+      height: 74px; display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 20px; }
+    .logo {
+      width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center;
+      background: linear-gradient(135deg, var(--blue), var(--purple)); font-weight: 900;
+      box-shadow: 0 8px 30px rgba(79, 140, 255, .3);
+    }
+    nav { display: flex; gap: 22px; color: var(--muted); font-size: 14px; }
+    nav a:hover { color: var(--text); }
+    .hero { padding: 92px 0 74px; display: grid; grid-template-columns: 1.15fr .85fr; gap: 56px; align-items: center; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px;
+      color: #bcd0ff; background: rgba(79, 140, 255, .12); border: 1px solid rgba(79, 140, 255, .28);
+      font-size: 13px;
+    }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px var(--green); }
+    h1 { margin: 20px 0 16px; font-size: clamp(38px, 6vw, 68px); line-height: 1.1; letter-spacing: -2px; }
+    h1 span { background: linear-gradient(90deg, #79a7ff, #b49aff); -webkit-background-clip: text; color: transparent; }
+    .lead { margin: 0; max-width: 620px; color: var(--muted); font-size: 17px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 13px 21px;
+      border-radius: 10px; font-weight: 650; border: 1px solid transparent; transition: .18s ease;
+    }
+    .btn-primary { background: linear-gradient(135deg, var(--blue), #6d8dff); color: #fff; box-shadow: 0 12px 30px rgba(79, 140, 255, .3); }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 34px rgba(79, 140, 255, .42); }
+    .btn-ghost { border-color: var(--line); background: rgba(255,255,255,.04); color: #dbe5f7; }
+    .btn-ghost:hover { background: rgba(255,255,255,.08); }
+    .meta { margin-top: 18px; color: var(--muted); font-size: 13px; }
+    .preview {
+      padding: 13px; border-radius: 22px; border: 1px solid var(--line);
+      background: linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      box-shadow: 0 28px 80px rgba(0,0,0,.38);
+    }
+    .preview-inner { min-height: 310px; border-radius: 14px; background: #0d1119; overflow: hidden; border: 1px solid rgba(255,255,255,.07); }
+    .mock-title { height: 44px; display: flex; align-items: center; gap: 7px; padding: 0 14px; border-bottom: 1px solid var(--line); }
+    .mock-dot { width: 9px; height: 9px; border-radius: 50%; background: #ff6b6b; }
+    .mock-dot:nth-child(2) { background: #ffcc57; }
+    .mock-dot:nth-child(3) { background: #54d6a0; }
+    .mock-title span { margin-left: 8px; color: var(--muted); font-size: 12px; }
+    .mock-body { padding: 22px; display: grid; grid-template-columns: 150px 1fr; gap: 16px; }
+    .mock-side { border-right: 1px solid var(--line); padding-right: 12px; }
+    .mock-pill { height: 10px; border-radius: 4px; background: rgba(255,255,255,.13); margin: 15px 0; }
+    .mock-pill.active { background: rgba(79,140,255,.72); }
+    .mock-main { display: grid; gap: 13px; }
+    .mock-hero { height: 72px; border-radius: 10px; background: linear-gradient(120deg, rgba(79,140,255,.35), rgba(155,123,255,.18)); }
+    .mock-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .mock-card { height: 100px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); }
+    section { padding: 32px 0; }
+    .section-head { margin-bottom: 24px; }
+    .eyebrow { color: #8eb3ff; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; }
+    h2 { margin: 7px 0 0; font-size: 30px; letter-spacing: -.5px; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .card {
+      padding: 22px; border-radius: 16px; background: linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.018));
+      border: 1px solid var(--line);
+    }
+    .icon { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 10px; background: rgba(79,140,255,.14); color: #9fc0ff; font-size: 19px; }
+    .card h3 { margin: 16px 0 7px; font-size: 17px; }
+    .card p { margin: 0; color: var(--muted); font-size: 14px; }
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .info-list { margin: 0; padding: 0; list-style: none; color: var(--muted); font-size: 14px; }
+    .info-list li { display: flex; justify-content: space-between; gap: 18px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+    .info-list b { color: var(--text); font-weight: 600; text-align: right; }
+    code { color: #b8c9e8; background: rgba(255,255,255,.06); padding: 2px 6px; border-radius: 5px; font-size: 12px; }
+    .changelog { color: var(--muted); font-size: 14px; }
+    .changelog li { margin: 7px 0; }
+    footer { margin-top: 42px; padding: 26px 0 38px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; display: flex; justify-content: space-between; gap: 18px; }
+    @media (max-width: 840px) {
+      .hero { grid-template-columns: 1fr; padding-top: 56px; }
+      .grid { grid-template-columns: 1fr 1fr; }
+      nav { display: none; }
+    }
+    @media (max-width: 600px) {
+      .wrap { width: min(100% - 28px, 1120px); }
+      .grid, .split { grid-template-columns: 1fr; }
+      .preview { display: none; }
+      footer { display: block; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="wrap">
+    <header>
+      <div class="brand"><div class="logo">N</div><span>NexHub</span></div>
+      <nav>
+        <a href="#features">功能</a>
+        <a href="#download">下载</a>
+        <a href="#notes">更新说明</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div>
+          <div class="badge"><span class="dot"></span> v0.1.0-beta 已发布</div>
+          <h1>把文件与远程桌面<br><span>放进同一个工作台</span></h1>
+          <p class="lead">NexHub 是面向 Windows 的共享与远程主机客户端：文件共享、OSS 长期缓存、临时穿透、RDP 主机、同账号在线设备和 NPS 隧道集中管理。</p>
+          <div class="actions" id="download">
+            <a class="btn btn-primary" href="NexHub-v0.1.0-beta.exe" download>↓ 下载 Windows 客户端</a>
+            <a class="btn btn-ghost" href="NexHub-Server-Deploy.zip">服务端一键部署包</a>
+            <a class="btn btn-ghost" href="latest.json">查看更新信息</a>
+          </div>
+          <div class="meta">Windows 10 / 11 · 单文件安装包 · 当前版本 v0.1.0-beta</div>
+        </div>
+        <div class="preview" aria-hidden="true">
+          <div class="preview-inner">
+            <div class="mock-title"><i class="mock-dot"></i><i class="mock-dot"></i><i class="mock-dot"></i><span>NexHub · 工作台</span></div>
+            <div class="mock-body">
+              <div class="mock-side">
+                <div class="mock-pill active"></div><div class="mock-pill"></div><div class="mock-pill"></div><div class="mock-pill"></div><div class="mock-pill"></div>
+              </div>
+              <div class="mock-main">
+                <div class="mock-hero"></div>
+                <div class="mock-cards"><div class="mock-card"></div><div class="mock-card"></div></div>
+                <div class="mock-card" style="height:56px"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="features">
+        <div class="section-head"><div class="eyebrow">Features</div><h2>一个客户端，覆盖常用协作场景</h2></div>
+        <div class="grid">
+          <div class="card"><div class="icon">◈</div><h3>文件共享</h3><p>按文件或文件夹发布共享，支持临时穿透与 OSS 长期缓存，生成可访问的分享链接。</p></div>
+          <div class="card"><div class="icon">◍</div><h3>RDP 主机</h3><p>保存常用 Windows 远程桌面连接，使用系统原生 mstsc，密码本地加密保存。</p></div>
+          <div class="card"><div class="icon">⌁</div><h3>同账号在线设备</h3><p>同一账号的电脑自动上报在线状态，在其他设备上直接发现并连接。</p></div>
+          <div class="card"><div class="icon">↗</div><h3>NPS 内网穿透</h3><p>云端管理 NPS 隧道，支持临时共享和 RDP 主机的 TCP 映射与自动注册。</p></div>
+          <div class="card"><div class="icon">✦</div><h3>插件工具箱</h3><p>内置内存优化等工具，支持生成自定义插件模板，保存后即时加载。</p></div>
+          <div class="card"><div class="icon">◐</div><h3>轻量本地数据</h3><p>配置保存在本机，登录凭证加密存储；关闭窗口后可通过托盘继续运行。</p></div>
+        </div>
+      </section>
+
+      <section>
+        <div class="split">
+          <div class="card">
+            <div class="eyebrow">System</div><h2 style="font-size:24px;margin-bottom:16px">运行要求</h2>
+            <ul class="info-list">
+              <li><span>操作系统</span><b>Windows 10 / 11</b></li>
+              <li><span>架构</span><b>x64</b></li>
+              <li><span>网络</span><b>可访问 ECS / NPS</b></li>
+              <li><span>可选组件</span><b>NPS NPC（RDP / 临时共享）</b></li>
+            </ul>
+          </div>
+          <div class="card" id="notes">
+            <div class="eyebrow">Release Notes</div><h2 style="font-size:24px;margin-bottom:16px">v0.1.0-beta</h2>
+            <ul class="changelog">
+              <li>新增登录面板服务器 IP、端口和 HTTP/HTTPS 配置。</li>
+              <li>新增检查更新与下载页。</li>
+              <li>新增自定义插件模板与插件加载开关。</li>
+              <li>优化初始窗口尺寸、单实例启动和托盘行为。</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <span>NexHub v0.1.0-beta · 文件共享与远程主机</span>
+      <span>更新清单：<a href="latest.json"><code>latest.json</code></a></span>
+    </footer>
+  </div>
+</body>
+</html>
+

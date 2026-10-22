@@ -1,0 +1,43 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<section class="card">
+    <div class="card-head">
+        <div><h2>全局日志</h2><p>系统访问、上传下载、管理员操作与错误日志（最近 500 条）</p></div>
+        <form method="get" action="/admin/logs" class="filter-row">
+            <input type="search" name="q" value="{{ q }}" placeholder="搜索日志内容">
+            <select name="category">
+                <option value="">全部类型</option>
+                {% for item in categories %}
+                <option value="{{ item }}" {{ 'selected' if category == item else '' }}>{{ category_labels.get(item, item) }}</option>
+                {% endfor %}
+            </select>
+            <select name="level">
+                <option value="">全部级别</option>
+                <option value="info" {{ 'selected' if level == 'info' else '' }}>信息</option>
+                <option value="warning" {{ 'selected' if level == 'warning' else '' }}>警告</option>
+                <option value="error" {{ 'selected' if level == 'error' else '' }}>错误</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" type="submit">筛选</button>
+        </form>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>时间</th><th>级别</th><th>类型</th><th>用户</th><th>IP</th><th>内容</th></tr></thead>
+            <tbody>
+            {% for log in logs %}
+            <tr>
+                <td class="muted nowrap">{{ log.created_at | dt }}</td>
+                <td><span class="log-level {{ log.level }}">{{ level_labels.get(log.level, log.level) }}</span></td>
+                <td><span class="badge badge-gray">{{ category_labels.get(log.category, log.category) }}</span></td>
+                <td>{{ ('@' + log.username) if log.username else '--' }}</td>
+                <td class="mono">{{ log.ip or '--' }}</td>
+                <td>{{ log.message }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="empty">暂无日志</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
