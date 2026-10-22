@@ -6,6 +6,20 @@ NexHub 面向个人和可信好友小范围使用：在本机一键发布文件/
 
 **Fluent Design · 默认深色主题 · FluentWindow 可折叠侧边栏 · 圆角卡片 · 深浅主题一键切换 · OSS 密钥只存在 ECS 后端**
 
+[![GitHub Release](https://img.shields.io/github/v/release/mouchenguo/NexHub?include_prereleases&label=release)](https://github.com/mouchenguo/NexHub/releases/latest)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%20%2F%2011-0078D4)](https://github.com/mouchenguo/NexHub/releases/latest)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB)](https://www.python.org/)
+
+## 下载
+
+| 文件 | 说明 |
+| --- | --- |
+| [`NexHub-v0.1.0-beta.exe`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.0-beta/NexHub-v0.1.0-beta.exe) | Windows 10 / 11 x64 客户端 |
+| [`NexHub-Server-Deploy.zip`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.0-beta/NexHub-Server-Deploy.zip) | 服务端一键部署包（含安装脚本） |
+| [`NexHub-Server-Bundle.zip`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.0-beta/NexHub-Server-Bundle.zip) | 仅服务端程序包，适合手动升级 |
+
+> GitHub Release 的客户端资产只保留一个 `NexHub-v0.1.0-beta.exe`，不再同时上传 `NexHub.exe` 与版本化副本。完整发布页见 [Releases](https://github.com/mouchenguo/NexHub/releases)。
+
 ## 界面预览
 
 | 客户端 · 仪表盘（深色） | 客户端 · 仪表盘（浅色） |
@@ -19,6 +33,10 @@ NexHub 面向个人和可信好友小范围使用：在本机一键发布文件/
 | 客户端 · 选择性下载 | 客户端 · 设置 |
 | --- | --- |
 | ![](docs/screenshots/client_download_dialog.png) | ![](docs/screenshots/client_settings_dark.png) |
+
+| 客户端 · 注册（服务端自动审核） |
+| --- |
+| ![](docs/screenshots/client_register.png) |
 
 | 客户端 · RDP 主机 | 客户端 · 工具箱 |
 | --- | --- |
@@ -38,7 +56,7 @@ NexHub 面向个人和可信好友小范围使用：在本机一键发布文件/
 
 ### Windows 客户端（PyQt6 + PyQt-Fluent-Widgets）
 
-- **账号系统**：主界面左下角显示「请登录」，点击后打开居中的内嵌登录面板；默认未登录进入空数据预览模式；支持记住我（DPAPI 加密凭证）、自动登录、修改密码、退出登录；服务器地址在设置页配置，**不硬编码 ECS IP**。
+- **账号系统**：主界面左下角显示「请登录」，点击后打开居中的内嵌登录面板；支持登录 / 注册切换、记住我（DPAPI 加密凭证）、自动登录、修改密码、退出登录；注册默认由服务端自动审核通过，也可切换为人工审核；服务器地址在设置页配置，**不硬编码 ECS IP**。
 - **单实例运行**：重复启动不会创建新窗口，而是通过本地 IPC 唤起已有实例（包括已关闭窗口并隐藏到托盘的情况）。
 - **窗口行为**：最小化保留在任务栏；点击关闭按钮才隐藏到托盘；托盘菜单仅保留「显示 NexHub / 退出 NexHub」。
 - **检查更新与下载页**：设置 → 关于与本地数据 → 检查更新，读取 `服务器地址/downloads/latest.json`；介绍页与安装包位于 `服务器地址/downloads/`。当前版本 `v0.1.0-beta`。
@@ -90,12 +108,12 @@ NexHub 面向个人和可信好友小范围使用：在本机一键发布文件/
   - 未配置 OSS 时自动回退到 ECS 本地磁盘，便于开发；
   - 下载会产生外网流量费用，客户端和管理后台均有提示。
 - **管理后台（1Panel 简约风格）**：
-  - 用户管理：查看、启用/禁用、重置密码、查看 OSS 占用；
+  - 用户管理：查看、注册审核（通过/拒绝）、启用/禁用、重置密码、查看 OSS 占用；
   - 共享资源：筛选、查看访问/下载日志、强制关闭、删除；
   - OSS 配置：容量上限、实际对象统计、存储模式与密钥配置状态；
   - NPS 配置：Bridge 可达性探测、域名/vkey 配置、活跃临时通道关闭；
   - 全局日志：认证、共享、下载、主机、OSS、管理、错误日志；
-  - 系统设置：网页域名、轮换后端签名密钥、部署信息与安全建议。
+  - 系统设置：网页域名、注册自动审核开关、轮换后端签名密钥、部署信息与安全建议。
 - **安全细节**：路径穿越防护、`token` 鉴权、管理员 HttpOnly Cookie、安全响应头、文件大小限制、流式传输。
 
 ## 架构
@@ -169,7 +187,8 @@ NexHub/
 │  ├─ .env.example
 │  ├─ app/
 │  │  ├─ main.py                # FastAPI 入口
-│  │  ├─ config.py / db.py      # 配置 + SQLite
+│  │  ├─ config.py / db.py      # 配置 + SQLite（含 users.status 自动迁移）
+│  │  ├─ registration.py        # 注册审核策略（默认自动通过 / 可转人工）
 │  │  ├─ security.py            # 密码哈希 + HMAC Token
 │  │  ├─ oss_service.py         # oss2 封装 / 本地回退
 │  │  ├─ nps_service.py         # nps 配置与 TCP 探测
@@ -234,7 +253,7 @@ python main.py
 # 或者双击 run_client.bat
 ```
 
-客户端启动后默认进入预览模式。先在「设置 → ECS 服务器」填写服务器 IP/域名与端口（如 `127.0.0.1`、`8000`），在下方选择 HTTP 或 HTTPS；也可以直接在登录面板中配置，登录后会自动同步回设置。再点击左下角「请登录」打开居中的登录面板；勾选「记住我」后，下次启动会用本机 DPAPI 加密保存的凭证自动登录。
+客户端启动后默认进入预览模式。先在「设置 → ECS 服务器」填写服务器 IP/域名与端口（如 `127.0.0.1`、`8000`），在下方选择 HTTP 或 HTTPS；也可以直接在登录面板中配置，登录后会自动同步回设置。再点击左下角「请登录」打开居中的登录/注册面板；注册默认自动审核通过，管理员也可在后台切换为人工审核；勾选「记住我」后，下次启动会用本机 DPAPI 加密保存的凭证自动登录。
 
 开发调试可强制进入演示模式：
 
@@ -358,6 +377,7 @@ cd D:\Code\Project\NexHub\client
 | `NEXHUB_WEB_BASE` | 分享链接使用的公网域名 |
 | `NEXHUB_TOKEN_TTL_HOURS` | 登录 token 有效期 |
 | `NEXHUB_COOKIE_SECURE` | HTTPS 环境建议设为 `true` |
+| `NEXHUB_REGISTRATION_AUTO_APPROVE` | `1`：注册自动审核通过；`0`：进入后台待审核（默认 `1`） |
 | `NEXHUB_OSS_QUOTA_GB` | 全局 OSS 容量上限（管理后台可改） |
 | `OSS_ENDPOINT` / `OSS_BUCKET` / `OSS_ACCESS_KEY_ID` / `OSS_ACCESS_KEY_SECRET` | 仅 ECS 使用 |
 | `NPS_SERVER_ADDR` / `NPS_SERVER_PORT` / `NPS_API_URL` | nps 服务地址与 Web API 地址 |
@@ -373,8 +393,9 @@ cd D:\Code\Project\NexHub\client
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | GET | `/api/health` | 健康检查 |
-| POST | `/api/auth/register` / `/api/auth/login` | 注册 / 登录 |
-| GET | `/api/auth/me` | 当前用户 + 容量 |
+| POST | `/api/auth/register` | 注册；自动审核通过时直接返回 token，否则进入待审核 |
+| POST | `/api/auth/login` | 登录；待审核或已拒绝账号返回 `403` |
+| GET | `/api/auth/me` | 当前用户 + 容量 + 审核状态 |
 | POST | `/api/auth/password` | 修改密码 |
 | GET | `/api/dashboard` | 仪表盘（用户维度） |
 | POST | `/api/devices/heartbeat` | 同账号设备心跳（设备名、NPS 隧道地址） |
@@ -457,7 +478,7 @@ python server\tests\preview_admin.py
 - 临时共享依赖客户端内嵌服务 + nps 隧道；客户端退出后自动失效。
 - OSS 自动清理是全局策略，会删除最早创建的活跃 OSS 共享；客户端发布页和管理后台均有提示。
 - 管理后台为管理员单一角色，未实现细粒度 RBAC、2FA、分页；适合个人/小型可信团队。
-- 客户端当前以源码方式运行，也可使用 `client/build_client.bat` 打包为 onefile。
+- 客户端可直接下载 Release 中的 `NexHub-v0.1.0-beta.exe`（onefile），也可使用 `client/build_client.bat` 自行打包。
 - RDP 依赖 Windows 自带 `mstsc.exe`；macOS/Linux 不支持该模块。
 - 客户端离线体验使用 `%APPDATA%\NexHub\demo` 下的真实示例文件，仅用于演示交互。
 

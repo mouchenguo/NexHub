@@ -1,15 +1,22 @@
 {% extends "admin/base.html" %}
 {% block content %}
+{% if pending_count %}
+<div class="inline-warning">有 {{ pending_count }} 个新账号等待人工审核，审核通过前无法登录客户端。</div>
+{% endif %}
 <section class="card">
     <div class="card-head">
-        <div><h2>全部账号</h2><p>共 {{ users | length }} 个账号 · OSS 配额 {{ quota | filesize }}</p></div>
-        <span class="badge badge-blue">账号由客户端注册</span>
+        <div><h2>全部账号</h2><p>共 {{ users | length }} 个账号 · 待审核 {{ pending_count }} · OSS 配额 {{ quota | filesize }}</p></div>
+        {% if auto_approve %}
+        <span class="badge badge-green">自动审核已开启</span>
+        {% else %}
+        <span class="badge badge-orange">人工审核中</span>
+        {% endif %}
     </div>
     <div class="table-wrap">
         <table>
             <thead>
             <tr>
-                <th>用户</th><th>角色</th><th>状态</th><th>OSS 占用</th>
+                <th>用户</th><th>角色</th><th>注册审核</th><th>启用状态</th><th>OSS 占用</th>
                 <th>共享数量</th><th>注册时间</th><th>最后登录</th><th class="right">操作</th>
             </tr>
             </thead>
@@ -23,6 +30,15 @@
                     </div>
                 </td>
                 <td>{% if user.role == 'admin' %}<span class="badge badge-purple">管理员</span>{% else %}<span class="badge badge-gray">普通用户</span>{% endif %}</td>
+                <td>
+                    {% if user.status == 'pending' %}
+                    <span class="badge badge-orange">待审核</span>
+                    {% elif user.status == 'rejected' %}
+                    <span class="badge badge-red">已拒绝</span>
+                    {% else %}
+                    <span class="badge badge-green">已通过</span>
+                    {% endif %}
+                </td>
                 <td>{% if user.enabled %}<span class="badge badge-green">启用</span>{% else %}<span class="badge badge-red">已禁用</span>{% endif %}</td>
                 <td>
                     <div class="mini-usage">
@@ -35,6 +51,18 @@
                 <td class="muted">{{ user.last_login | dt }}</td>
                 <td class="right">
                     <div class="action-row">
+                        {% if user.role != 'admin' and user.status != 'approved' %}
+                        <form method="post" action="/admin/users/{{ user.id }}/review">
+                            <input type="hidden" name="action" value="approve">
+                            <button class="btn btn-sm btn-success" type="submit">通过</button>
+                        </form>
+                        {% endif %}
+                        {% if user.role != 'admin' and user.status == 'pending' %}
+                        <form method="post" action="/admin/users/{{ user.id }}/review">
+                            <input type="hidden" name="action" value="reject">
+                            <button class="btn btn-sm btn-danger" type="submit">拒绝</button>
+                        </form>
+                        {% endif %}
                         <form method="post" action="/admin/users/{{ user.id }}/toggle">
                             <button class="btn btn-sm {{ 'btn-secondary' if user.enabled else 'btn-success' }}" type="submit"
                                     {% if user.id == admin.id or user.role == 'admin' %}disabled title="不能禁用管理员账号"{% endif %}>
@@ -52,7 +80,7 @@
                 </td>
             </tr>
             {% else %}
-            <tr><td colspan="8" class="empty">暂无用户</td></tr>
+            <tr><td colspan="9" class="empty">暂无用户</td></tr>
             {% endfor %}
             </tbody>
         </table>

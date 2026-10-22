@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_salt TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'user',
     enabled INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL DEFAULT 'approved',
     created_at TEXT NOT NULL,
     last_login TEXT,
     avatar_ext TEXT NOT NULL DEFAULT ''
@@ -208,6 +209,10 @@ def init_db() -> None:
         if "avatar_ext" not in columns:
             conn.execute(
                 "ALTER TABLE users ADD COLUMN avatar_ext TEXT NOT NULL DEFAULT ''"
+            )
+        if "status" not in columns:
+            conn.execute(
+                "ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'approved'"
             )
         share_columns = {
             row["name"] for row in conn.execute("PRAGMA table_info(shares)").fetchall()

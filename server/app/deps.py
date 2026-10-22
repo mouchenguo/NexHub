@@ -16,6 +16,8 @@ def _user_from_token(token: str) -> dict | None:
     user = db.query_one("SELECT * FROM users WHERE id = ?", (payload.get("sub"),))
     if not user or not user.get("enabled"):
         return None
+    if str(user.get("status") or "approved") != "approved":
+        return None
     return user
 
 

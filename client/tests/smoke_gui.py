@@ -90,6 +90,16 @@ def main() -> int:
         window.account_panel.isVisible()
         and window.account_panel.stack.currentWidget() is window.account_panel.login_page,
     )
+    window.account_panel.auth_segment.setCurrentItem("register")
+    pump(app, 0.3)
+    print(
+        "register form:",
+        window.account_panel.auth_stack.currentWidget()
+        is window.account_panel.register_form
+        and bool(window.account_panel.register_username_edit.placeholderText()),
+    )
+    window.grab().save(str(SHOT_DIR / "account_register_light.png"))
+    window.account_panel.auth_segment.setCurrentItem("login")
     window.account_panel.close_panel()
     pump(app, 0.4)
     print("pages:", sorted(window._pages))

@@ -31,11 +31,15 @@ jobs:
         run: |
           python -m PyInstaller --noconfirm --clean --onefile --windowed --name NexHub --icon "nexhub\resources\nexhub.ico" --add-data "nexhub\resources;nexhub\resources" --collect-all qfluentwidgets --hidden-import nexhub.npc_admin --hidden-import win32crypt main.py
 
-      - name: Name release executable
+      - name: Prepare single release executable
         shell: pwsh
         run: |
           $version = (Select-String -Path "client/nexhub/paths.py" -Pattern 'VERSION = "([^"]+)"').Matches.Groups[1].Value
-          Copy-Item "client/dist/NexHub.exe" "client/dist/NexHub-v$version.exe" -Force
+          Move-Item "client/dist/NexHub.exe" "client/dist/NexHub-v$version.exe" -Force
+          $exes = @(Get-ChildItem "client/dist" -Filter "*.exe")
+          if ($exes.Count -ne 1) {
+            throw "Expected exactly one release exe, found $($exes.Count)"
+          }
           "VERSION=$version" >> $env:GITHUB_ENV
 
       - name: Upload build artifact

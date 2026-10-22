@@ -58,6 +58,7 @@ def user_payload(user: dict) -> dict:
         "display_name": user.get("display_name") or user["username"],
         "role": user.get("role", "user"),
         "enabled": bool(user.get("enabled", 1)),
+        "status": user.get("status") or "approved",
         "has_avatar": bool(user.get("avatar_ext")),
         "oss_used": used,
         "oss_quota": quota_bytes(),

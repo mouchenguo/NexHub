@@ -71,6 +71,22 @@ class AppContext(QObject):
         if not username or not password:
             raise ValueError("请填写账号与密码")
         result = self.api.login(username, password)
+        return self._start_session(result, username, password, remember)
+
+    def register(self, username: str, password: str, display_name: str = "") -> dict:
+        """提交注册；服务端自动审核通过时直接建立登录会话。"""
+        username = username.strip()
+        display_name = display_name.strip()
+        if not username or not password:
+            raise ValueError("请填写用户名与密码")
+        result = self.api.register(username, password, display_name)
+        if result.get("token"):
+            self._start_session(result, username, password, remember=False)
+        return result
+
+    def _start_session(
+        self, result: dict, username: str, password: str, remember: bool
+    ) -> dict:
         user = result.get("user", {})
         token = str(result.get("token", ""))
         if not token:

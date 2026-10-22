@@ -69,6 +69,9 @@ class Settings:
     admin_username: str = _env("NEXHUB_ADMIN_USERNAME", "admin")
     admin_password: str = _env("NEXHUB_ADMIN_PASSWORD", "Admin@12345")
     demo_password: str = _env("NEXHUB_DEMO_PASSWORD", "demo1234")
+    registration_auto_approve: bool = _env_bool(
+        "NEXHUB_REGISTRATION_AUTO_APPROVE", True
+    )
     web_base: str = _env("NEXHUB_WEB_BASE", "").rstrip("/")
     cookie_secure: bool = _env_bool("NEXHUB_COOKIE_SECURE", False)
     max_oss_bytes: int = _env_int("NEXHUB_MAX_OSS_BYTES", 5 * GIB)

@@ -105,6 +105,23 @@ def main() -> int:
         config.save()
         check(bool(config.token), "客户端 API 登录")
 
+        registered = api.register("live_register", "live1234", "联调注册用户")
+        check(
+            registered.get("status") == "approved"
+            and registered.get("auto_approved") is True
+            and bool(registered.get("token")),
+            "客户端 API 注册（自动审核通过）",
+        )
+        demo_token = config.token
+        config.token = registered["token"]
+        profile = api.me().get("user", {})
+        check(
+            profile.get("username") == "live_register"
+            and profile.get("status") == "approved",
+            "注册账号凭证可访问个人资料",
+        )
+        config.token = demo_token
+
         devices = DeviceService(config, api)
         devices.start()
         time.sleep(1.2)

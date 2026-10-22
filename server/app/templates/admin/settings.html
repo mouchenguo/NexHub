@@ -2,13 +2,18 @@
 {% block content %}
 <div class="two-col">
     <section class="card">
-        <div class="card-head"><div><h2>域名配置</h2><p>用于生成网页端分享链接</p></div></div>
+        <div class="card-head"><div><h2>域名与注册审核</h2><p>网页分享链接与账号审核策略</p></div></div>
         <form method="post" action="/admin/settings" class="stack">
             <label>公网访问域名
                 <input type="text" name="web_base" value="{{ web_base_value }}" placeholder="https://hub.example.com">
             </label>
             <p class="muted small">留空时自动使用当前请求地址。反向代理场景建议固定填写，例如 <code>https://share.example.com</code>。</p>
-            <button class="btn btn-primary" type="submit">保存域名</button>
+            <label class="check-row">
+                <input type="checkbox" name="registration_auto_approve" value="1" {% if auto_approve_value %}checked{% endif %}>
+                <span>新注册账号自动审核通过</span>
+            </label>
+            <p class="muted small">开启后，通过格式校验的新账号立即生效；关闭后，新账号进入待审核列表，需管理员在「用户管理」中通过后才能登录。默认开启。</p>
+            <button class="btn btn-primary" type="submit">保存设置</button>
         </form>
     </section>
 

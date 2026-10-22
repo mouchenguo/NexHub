@@ -16,6 +16,15 @@ from ..config import settings
 from ..deps import ADMIN_COOKIE, admin_page_user, issue_token
 from ..nps_service import active_temp_tunnels, check_status, get_config as get_nps_config, save_config as save_nps_config
 from ..oss_service import oss_service
+from ..registration import (
+    STATUS_APPROVED,
+    STATUS_LABELS,
+    STATUS_PENDING,
+    STATUS_REJECTED,
+    auto_approve_enabled,
+    set_auto_approve,
+    status_error,
+)
 from ..security import hash_password, verify_password
 from ..share_ops import cancel_share, fetch_share, remove_share
 from ..templating import render
@@ -90,6 +99,16 @@ def admin_login(
                 "username": username,
             },
         )
+    if str(user.get("status") or STATUS_APPROVED) != STATUS_APPROVED:
+        return render(
+            request,
+            "admin/login.html",
+            {
+                "title": "管理员登录",
+                "version": settings.version,
+                "error": status_error(str(user.get("status") or STATUS_APPROVED)),
+            },
+        )
     if not user.get("enabled"):
         return render(
             request,
@@ -127,6 +146,9 @@ def admin_logout(request: Request, admin: dict = Depends(admin_page_user)):
 def admin_dashboard(request: Request, admin: dict = Depends(admin_page_user)):
     context = _base_context(admin, "dashboard", "仪表盘")
     users = db.query_one("SELECT COUNT(*) AS count FROM users")
+    pending_users = db.query_one(
+        "SELECT COUNT(*) AS count FROM users WHERE status = ?", (STATUS_PENDING,)
+    )
     shares = db.query_one("SELECT COUNT(*) AS count FROM shares WHERE status = 'active'")
     downloads = db.query_one("SELECT COUNT(*) AS count FROM download_logs")
     recent_shares = db.query_all(
@@ -145,6 +167,7 @@ def admin_dashboard(request: Request, admin: dict = Depends(admin_page_user)):
         {
             "stats": {
                 "users": int(users["count"]) if users else 0,
+                "pending_users": int(pending_users["count"]) if pending_users else 0,
                 "shares": int(shares["count"]) if shares else 0,
                 "downloads": int(downloads["count"]) if downloads else 0,
                 "oss_used": oss_used,
@@ -173,12 +196,20 @@ def admin_users(request: Request, admin: dict = Depends(admin_page_user)):
         "COALESCE((SELECT SUM(total_size) FROM shares s WHERE s.owner_id = u.id "
         "AND s.storage_type = 'oss' AND s.status = 'active'), 0) AS oss_used, "
         "(SELECT COUNT(*) FROM shares s WHERE s.owner_id = u.id) AS share_count "
-        "FROM users u ORDER BY u.created_at ASC"
+        "FROM users u "
+        "ORDER BY CASE u.status WHEN 'pending' THEN 0 WHEN 'rejected' THEN 2 ELSE 1 END, "
+        "u.created_at DESC"
+    )
+    pending = db.query_one(
+        "SELECT COUNT(*) AS count FROM users WHERE status = ?", (STATUS_PENDING,)
     )
     context.update(
         {
             "users": rows,
             "quota": quota_bytes(),
+            "pending_count": int(pending["count"]) if pending else 0,
+            "auto_approve": auto_approve_enabled(),
+            "status_labels": STATUS_LABELS,
             "message": request.query_params.get("msg", ""),
             "message_type": request.query_params.get("type", "success"),
         }
@@ -211,6 +242,44 @@ def admin_toggle_user(
     return _redirect(
         "/admin/users", f"已{'启用' if new_state else '禁用'}用户 {target['username']}"
     )
+
+
+@router.post("/admin/users/{user_id}/review")
+def admin_review_user(
+    user_id: int,
+    request: Request,
+    action: str = Form(...),
+    admin: dict = Depends(admin_page_user),
+):
+    target = db.query_one("SELECT * FROM users WHERE id = ?", (user_id,))
+    if not target:
+        return _redirect("/admin/users", "用户不存在", "error")
+    if target.get("role") == "admin":
+        return _redirect("/admin/users", "管理员账号无需注册审核", "error")
+    action = action.strip().lower()
+    if action not in ("approve", "reject"):
+        return _redirect("/admin/users", "无效的审核操作", "error")
+    if action == "approve":
+        db.execute(
+            "UPDATE users SET status = ?, enabled = 1 WHERE id = ?",
+            (STATUS_APPROVED, user_id),
+        )
+        message = f"已通过 {target['username']} 的注册审核"
+        level = "info"
+    else:
+        db.execute(
+            "UPDATE users SET status = ? WHERE id = ?", (STATUS_REJECTED, user_id)
+        )
+        message = f"已拒绝 {target['username']} 的注册申请"
+        level = "warning"
+    db.log_event(
+        level,
+        "admin",
+        message,
+        user_id=admin["id"],
+        ip=client_ip(request),
+    )
+    return _redirect("/admin/users", message)
 
 
 @router.post("/admin/users/{user_id}/reset-password")
@@ -483,6 +552,7 @@ def admin_settings(request: Request, admin: dict = Depends(admin_page_user)):
         {
             "cfg": settings,
             "web_base_value": db.get_setting("web_base", settings.web_base),
+            "auto_approve_value": auto_approve_enabled(),
             "oss": oss_service.status(),
             "secret_is_default": not bool(db.get_setting("jwt_secret", "")),
             "message": request.query_params.get("msg", ""),
@@ -496,20 +566,24 @@ def admin_settings(request: Request, admin: dict = Depends(admin_page_user)):
 def admin_settings_update(
     request: Request,
     web_base: str = Form(default=""),
+    registration_auto_approve: str = Form(default=""),
     admin: dict = Depends(admin_page_user),
 ):
     value = web_base.strip().rstrip("/")
     if value and not value.startswith(("http://", "https://")):
         return _redirect("/admin/settings", "域名必须以 http(s):// 开头", "error")
     db.set_setting("web_base", value)
+    auto_approve = registration_auto_approve.strip().lower() in ("1", "true", "yes", "on")
+    set_auto_approve(auto_approve)
     db.log_event(
         "info",
         "admin",
-        f"更新网页访问域名：{value or '（使用请求地址）'}",
+        f"更新系统设置：域名={value or '（使用请求地址）'}，"
+        f"注册自动审核={'开启' if auto_approve else '关闭'}",
         user_id=admin["id"],
         ip=client_ip(request),
     )
-    return _redirect("/admin/settings", "域名配置已保存")
+    return _redirect("/admin/settings", "系统设置已保存")
 
 
 @router.post("/admin/settings/rotate-secret")

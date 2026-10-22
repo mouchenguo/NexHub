@@ -54,8 +54,44 @@ def main() -> int:
             "/api/auth/register",
             json={"username": "tester", "password": "test1234", "display_name": "测试用户"},
         )
-        check(register.status_code == 200, "注册新用户")
+        check(
+            register.status_code == 200
+            and register.json()["status"] == "approved"
+            and register.json()["auto_approved"]
+            and register.json()["token"],
+            "注册新用户（自动审核通过）",
+        )
         test_headers = auth(register.json()["token"])
+
+        db.set_setting("registration_auto_approve", "0")
+        pending_register = client.post(
+            "/api/auth/register",
+            json={"username": "pending_user", "password": "pending123", "display_name": "待审用户"},
+        )
+        pending_payload = pending_register.json()
+        check(
+            pending_register.status_code == 200
+            and pending_payload["status"] == "pending"
+            and pending_payload["requires_review"]
+            and not pending_payload["token"],
+            "关闭自动审核后注册进入待审核",
+        )
+        pending_id = pending_payload["user"]["id"]
+        pending_login = client.post(
+            "/api/auth/login", json={"username": "pending_user", "password": "pending123"}
+        )
+        check(pending_login.status_code == 403, "待审核账号禁止登录")
+
+        rejected_register = client.post(
+            "/api/auth/register",
+            json={"username": "rejected_user", "password": "rejected123", "display_name": "拒绝用户"},
+        )
+        rejected_id = rejected_register.json()["user"]["id"]
+        db.set_setting("registration_auto_approve", "1")
+        check(
+            rejected_register.json()["status"] == "pending",
+            "人工审核模式下所有新账号待审",
+        )
 
         avatar_png = base64.b64decode(
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
@@ -209,6 +245,41 @@ def main() -> int:
         ):
             response = client.get(path, cookies=admin_login.cookies)
             check(response.status_code == 200 and keyword in response.text, f"后台页面 {path}")
+        users_page = client.get("/admin/users", cookies=admin_login.cookies)
+        check(
+            "待审核" in users_page.text and "自动审核已开启" in users_page.text,
+            "后台显示注册审核状态",
+        )
+        approve = client.post(
+            f"/admin/users/{pending_id}/review",
+            data={"action": "approve"},
+            cookies=admin_login.cookies,
+        )
+        check(approve.status_code == 303, "管理员通过注册审核")
+        approved_login = client.post(
+            "/api/auth/login", json={"username": "pending_user", "password": "pending123"}
+        )
+        check(approved_login.status_code == 200, "审核通过后允许登录")
+        reject = client.post(
+            f"/admin/users/{rejected_id}/review",
+            data={"action": "reject"},
+            cookies=admin_login.cookies,
+        )
+        check(reject.status_code == 303, "管理员拒绝注册审核")
+        rejected_login = client.post(
+            "/api/auth/login", json={"username": "rejected_user", "password": "rejected123"}
+        )
+        check(rejected_login.status_code == 403, "拒绝后禁止登录")
+        settings_update = client.post(
+            "/admin/settings",
+            data={"web_base": "", "registration_auto_approve": "1"},
+            cookies=admin_login.cookies,
+        )
+        check(
+            settings_update.status_code == 303
+            and db.get_setting("registration_auto_approve") == "1",
+            "后台保存自动审核开关",
+        )
         share_logs = client.get(f"/admin/shares/{share_id}/logs", cookies=admin_login.cookies)
         check(share_logs.status_code == 200, "共享访问日志")
 
