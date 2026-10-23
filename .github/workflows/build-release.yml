@@ -42,6 +42,19 @@ jobs:
           }
           "VERSION=$version" >> $env:GITHUB_ENV
 
+      - name: Refresh release manifest checksums
+        shell: pwsh
+        run: |
+          $exe = "client/dist/NexHub-v$env:VERSION.exe"
+          $exeSha = (Get-FileHash $exe -Algorithm SHA256).Hash
+          $serverSha = (Get-FileHash "release/NexHub-Server-Deploy.zip" -Algorithm SHA256).Hash
+          $latest = Get-Content "release/latest.json" -Raw | ConvertFrom-Json
+          $latest.sha256 = $exeSha
+          $latest.server_sha256 = $serverSha
+          $latest | ConvertTo-Json -Depth 10 | Set-Content "release/latest.json" -Encoding utf8
+          Write-Host "Client SHA256: $exeSha"
+          Write-Host "Server SHA256: $serverSha"
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
