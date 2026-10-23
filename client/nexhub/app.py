@@ -111,6 +111,11 @@ class MainWindow(FluentWindow):
         self.account_panel.password_requested.connect(self._change_password)
         self.ctx.connection_changed.connect(self._on_connection_changed)
         self._setup_tray()
+        if self.ctx.server_compat.warning:
+            QTimer.singleShot(
+                1200,
+                lambda: self.show_toast(self.ctx.server_compat.warning, "warning"),
+            )
         # qfluentwidgets 在首次 addSubInterface 时会把尚未显示窗口重置为
         # 500x500，因此初始尺寸必须在页面全部添加完成后再应用。
         self._apply_initial_geometry()

@@ -4,7 +4,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from ..api_client import ApiClient
+from ..compat import CLIENT_API_VERSION
 from ..config import AppConfig
+from ..paths import VERSION
 from .demo_store import DemoStore
 
 
@@ -30,7 +32,13 @@ class DownloadService:
     def share_jobs(self, share: dict, files: list[dict]) -> tuple[list[DownloadJob], list[str]]:
         jobs: list[DownloadJob] = []
         skipped: list[str] = []
-        headers = {"Authorization": f"Bearer {self.config.token}"} if self.config.token else {}
+        headers = {
+            "User-Agent": f"NexHub-Client/{VERSION}",
+            "X-NexHub-Client-Version": VERSION,
+            "X-NexHub-Client-Api-Version": str(CLIENT_API_VERSION),
+        }
+        if self.config.token:
+            headers["Authorization"] = f"Bearer {self.config.token}"
         for item in files:
             path = item.get("path", "")
             try:

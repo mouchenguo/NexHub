@@ -11,7 +11,9 @@ from urllib.parse import quote
 
 import requests
 
+from .compat import CLIENT_API_VERSION
 from .config import AppConfig, normalize_server_url
+from .paths import VERSION
 
 DEFAULT_TIMEOUT = 15
 
@@ -29,7 +31,13 @@ class ApiClient:
     def __init__(self, config: AppConfig):
         self.config = config
         self.session = requests.Session()
-        self.session.headers.update({"User-Agent": "NexHub-Client/0.1"})
+        self.session.headers.update(
+            {
+                "User-Agent": f"NexHub-Client/{VERSION}",
+                "X-NexHub-Client-Version": VERSION,
+                "X-NexHub-Client-Api-Version": str(CLIENT_API_VERSION),
+            }
+        )
 
     # ------------------------------------------------------------------
     @property
@@ -219,7 +227,15 @@ class ApiClient:
         if not target:
             raise ApiError("请填写服务器地址")
         try:
-            response = requests.get(f"{target}/api/health", timeout=timeout)
+            response = requests.get(
+                f"{target}/api/health",
+                timeout=timeout,
+                headers={
+                    "User-Agent": f"NexHub-Client/{VERSION}",
+                    "X-NexHub-Client-Version": VERSION,
+                    "X-NexHub-Client-Api-Version": str(CLIENT_API_VERSION),
+                },
+            )
         except requests.RequestException as exc:
             raise ApiError(f"连接失败：{exc}") from exc
         if response.status_code >= 400:
@@ -244,6 +260,7 @@ def _extract_error(response: requests.Response) -> str:
         401: "登录状态已失效，请重新登录",
         403: "没有权限执行该操作",
         404: "请求的资源不存在",
+        426: "客户端版本过低，请升级客户端后重试",
         429: "请求过于频繁，请稍后再试",
     }
     return mapping.get(response.status_code, f"服务器错误（HTTP {response.status_code}）")

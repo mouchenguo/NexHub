@@ -339,7 +339,13 @@ class AccountPanel(QWidget):
         self._sync_state()
         self.close_panel()
         self.ctx.navigate("dashboard")
-        self.ctx.notify("登录成功", "success")
+        compatibility = self.ctx.server_compat
+        if compatibility.error:
+            self.ctx.notify(compatibility.error, "error")
+        elif compatibility.warning:
+            self.ctx.notify(compatibility.warning, "warning")
+        else:
+            self.ctx.notify("登录成功", "success")
 
     def _on_login_failed(self, message: str) -> None:
         self.login_button.setEnabled(True)
@@ -394,7 +400,11 @@ class AccountPanel(QWidget):
             self._sync_state()
             self.close_panel()
             self.ctx.navigate("dashboard")
-            self.ctx.notify(message, "success")
+            compatibility = self.ctx.server_compat
+            if compatibility.warning:
+                self.ctx.notify(compatibility.warning, "warning")
+            else:
+                self.ctx.notify(message, "success")
             return
         user = result.get("user", {})
         username = str(user.get("username") or self.register_username_edit.text()).strip()

@@ -48,10 +48,9 @@ jobs:
           $exe = "client/dist/NexHub-v$env:VERSION.exe"
           $exeSha = (Get-FileHash $exe -Algorithm SHA256).Hash
           $serverSha = (Get-FileHash "release/NexHub-Server-Deploy.zip" -Algorithm SHA256).Hash
-          $latest = Get-Content "release/latest.json" -Raw | ConvertFrom-Json
-          $latest.sha256 = $exeSha
-          $latest.server_sha256 = $serverSha
-          $latest | ConvertTo-Json -Depth 10 | Set-Content "release/latest.json" -Encoding utf8
+          $env:NEXHUB_EXE_SHA = $exeSha
+          $env:NEXHUB_SERVER_SHA = $serverSha
+          python -c "import json, os, pathlib; p = pathlib.Path('release/latest.json'); d = json.loads(p.read_text(encoding='utf-8')); d['sha256'] = os.environ['NEXHUB_EXE_SHA']; d['server_sha256'] = os.environ['NEXHUB_SERVER_SHA']; p.write_text(json.dumps(d, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')"
           Write-Host "Client SHA256: $exeSha"
           Write-Host "Server SHA256: $serverSha"
 

@@ -29,7 +29,7 @@ def update_manifest_url(config: AppConfig) -> str:
     return f"{base}/downloads/latest.json"
 
 
-def _version_key(value: str) -> tuple:
+def version_key(value: str) -> tuple:
     """比较 v0.1.0-beta / 0.1.1 这类版本号。"""
     text = (value or "").strip().lower().lstrip("v")
     if "-" in text:
@@ -75,7 +75,7 @@ def check_for_updates(config: AppConfig, timeout: int = 8) -> UpdateInfo:
     return UpdateInfo(
         current_version=VERSION,
         latest_version=latest_version,
-        update_available=_version_key(latest_version) > _version_key(VERSION),
+        update_available=version_key(latest_version) > version_key(VERSION),
         download_url=download_url,
         page_url=page_url,
         manifest_url=manifest_url,

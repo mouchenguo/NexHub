@@ -24,7 +24,8 @@ from qfluentwidgets import (
 )
 
 from ..api_client import ApiClient
-from ..config import build_server_url, split_server_url
+from ..compat import ServerCompatibility
+from ..config import build_server_url, normalize_server_url, split_server_url
 from ..paths import VERSION, app_data_dir, config_path
 from ..services.update_service import UpdateInfo, check_for_updates
 from ..widgets.common import (
@@ -53,6 +54,7 @@ class SettingsPage(BasePage):
         self._folders: list[tuple[FIF, str, str, QWidget]] = []
         super().__init__(ctx, parent)
         self.ctx.theme.theme_changed.connect(self._sync_theme_segment)
+        self.ctx.server_compat_changed.connect(self._on_compat_changed)
 
     # ------------------------------------------------------------------
     def build(self) -> None:
@@ -218,6 +220,10 @@ class SettingsPage(BasePage):
         self.server_status = CaptionLabel("")
         self.server_status.setWordWrap(True)
         layout.addWidget(self.server_status)
+        self.compat_status = CaptionLabel("")
+        self.compat_status.setWordWrap(True)
+        layout.addWidget(self.compat_status)
+        self._sync_compat_label(self.ctx.server_compat)
         self._add_group(
             FIF.GLOBE,
             "ECS 服务器",
@@ -276,14 +282,49 @@ class SettingsPage(BasePage):
     def _on_test_success(self, payload: dict) -> None:
         self.test_button.setEnabled(True)
         self.test_button.setText("测试连接")
-        version = payload.get("version") or payload.get("status", "ok")
-        self.server_status.setText(f"连接成功 · 服务端 {version}")
-        InfoBar.success(
-            "连接成功",
-            f"服务端 {version}",
-            parent=self,
-            position=InfoBarPosition.TOP_RIGHT,
-        )
+        compatibility = ServerCompatibility.from_payload(payload)
+        version = compatibility.server_version or payload.get("version") or "未知"
+        self.server_status.setText(f"连接成功 · 服务端 v{version}")
+        self._sync_compat_label(compatibility)
+        if normalize_server_url(self.ctx.config.server_url) == normalize_server_url(
+            self._server_url_from_fields()
+        ):
+            self.ctx.apply_server_compat(payload)
+        detail = compatibility.summary
+        if compatibility.message:
+            detail += f"\n{compatibility.message}"
+        if compatibility.error:
+            InfoBar.error(
+                "客户端版本不兼容",
+                compatibility.error,
+                parent=self,
+                position=InfoBarPosition.TOP_RIGHT,
+                duration=6000,
+            )
+        elif compatibility.warning:
+            InfoBar.warning(
+                "连接成功，存在兼容提示",
+                detail,
+                parent=self,
+                position=InfoBarPosition.TOP_RIGHT,
+                duration=6000,
+            )
+        else:
+            InfoBar.success(
+                "连接成功",
+                detail,
+                parent=self,
+                position=InfoBarPosition.TOP_RIGHT,
+            )
+
+    def _on_compat_changed(self, compatibility: ServerCompatibility) -> None:
+        self._sync_compat_label(compatibility)
+
+    def _sync_compat_label(self, compatibility: ServerCompatibility) -> None:
+        text = compatibility.summary
+        if compatibility.message:
+            text += f"\n{compatibility.message}"
+        self.compat_status.setText(text)
 
     def _on_test_failed(self, message: str) -> None:
         self.test_button.setEnabled(True)
@@ -309,8 +350,13 @@ class SettingsPage(BasePage):
             )
             return
         url = self._server_url_from_fields()
+        changed = normalize_server_url(url) != normalize_server_url(
+            self.ctx.config.server_url
+        )
         self.ctx.config.server_url = url
         self.ctx.config.save()
+        if changed:
+            self.ctx.apply_server_compat({})
         self._sync_server_fields()
         if self.ctx.main_window:
             self.ctx.main_window.refresh_shell()

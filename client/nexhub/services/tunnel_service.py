@@ -4,7 +4,7 @@ from __future__ import annotations
 import socket
 from typing import Any
 
-from ..api_client import ApiClient
+from ..api_client import ApiClient, ApiError
 from ..config import AppConfig
 from .demo_store import DemoStore
 from .npc_service import NpcManager
@@ -76,14 +76,22 @@ class TunnelService:
             self.config.device_name or socket.gethostname() or "Windows PC"
         ).strip()
         tunnel_name = f"RDP-{device_name}"[:64]
-        response = self.api.auto_nps_tunnel(
-            {
-                "name": tunnel_name,
-                "local_host": "127.0.0.1",
-                "local_port": int(local_port),
-                "rdp_task": True,
-            }
-        )
+        try:
+            response = self.api.auto_nps_tunnel(
+                {
+                    "name": tunnel_name,
+                    "local_host": "127.0.0.1",
+                    "local_port": int(local_port),
+                    "rdp_task": True,
+                }
+            )
+        except ApiError as exc:
+            if exc.status_code == 404:
+                raise RuntimeError(
+                    "当前服务端版本过低，不支持 NPC 一键自动配置。"
+                    "请升级服务端，或手动填写 NPS 地址和 vkey。"
+                ) from exc
+            raise
         tunnel = response.get("tunnel") if isinstance(response, dict) else None
         if not isinstance(tunnel, dict) or not tunnel.get("vkey"):
             raise RuntimeError("服务端未返回可用的 NPS 主机配置")

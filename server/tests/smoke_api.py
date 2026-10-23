@@ -45,10 +45,44 @@ def main() -> int:
     with TestClient(app, follow_redirects=False) as client:
         health = client.get("/api/health")
         check(health.status_code == 200 and health.json()["status"] == "ok", "健康检查")
+        health_payload = health.json()
+        check(
+            health_payload.get("api_version") == 1
+            and health_payload.get("min_client_version")
+            and "auto_tunnel" in health_payload.get("features", []),
+            "健康检查声明协议版本与能力",
+        )
+        check(
+            health.headers.get("X-NexHub-Api-Version") == "1"
+            and health.headers.get("X-NexHub-Min-Client-Version"),
+            "响应头声明协议版本",
+        )
 
         login = client.post("/api/auth/login", json={"username": "demo", "password": "demo1234"})
         check(login.status_code == 200, "演示账号登录")
+        check(
+            login.json().get("server", {}).get("api_version") == 1,
+            "登录响应包含服务端兼容信息",
+        )
         demo_headers = auth(login.json()["token"])
+
+        old_client_login = client.post(
+            "/api/auth/login",
+            json={"username": "demo", "password": "demo1234"},
+            headers={"X-NexHub-Client-Version": "0.0.1"},
+        )
+        check(old_client_login.status_code == 426, "明确上报过低客户端版本时拒绝登录")
+        old_client_api = client.get(
+            "/api/auth/me",
+            headers={**demo_headers, "X-NexHub-Client-Version": "0.0.1"},
+        )
+        check(old_client_api.status_code == 426, "过低客户端版本不能调用鉴权接口")
+        versioned_login = client.post(
+            "/api/auth/login",
+            json={"username": "demo", "password": "demo1234"},
+            headers={"X-NexHub-Client-Version": "0.1.0-beta"},
+        )
+        check(versioned_login.status_code == 200, "当前版本客户端可正常登录")
 
         register = client.post(
             "/api/auth/register",

@@ -29,18 +29,23 @@ from nexhub.single_instance import SingleInstance
 from nexhub.theme import ThemeManager
 
 
-def _try_auto_login(config: AppConfig) -> bool:
+def _try_auto_login(config: AppConfig) -> dict | None:
     """只有勾选“记住我”且凭证可解密时才自动登录。"""
     if not config.remember_me or not config.credential_enc:
         config.enter_demo()
-        return False
+        return None
     credentials = CredentialStore.load(config.credential_enc)
     if credentials is None:
         config.enter_demo()
-        return False
+        return None
     client = ApiClient(config)
     try:
         result = client.login(*credentials)
+        if not isinstance(result.get("server"), dict):
+            try:
+                result["server"] = client.health()
+            except Exception:
+                pass
     except Exception:
         # 网络或服务暂时不可用时保留加密凭证，下次启动仍可自动重试。
         config.demo_mode = True
@@ -49,21 +54,21 @@ def _try_auto_login(config: AppConfig) -> bool:
         config.display_name = "请登录"
         config.role = "user"
         config.save()
-        return False
+        return None
     finally:
         client.close()
     user = result.get("user", {})
     config.token = str(result.get("token", ""))
     if not config.token:
         config.enter_demo()
-        return False
+        return None
     config.username = str(user.get("username", credentials[0]))
     config.display_name = str(user.get("display_name") or config.username)
     config.role = str(user.get("role", "user"))
     config.demo_mode = False
     config.remember_me = True
     config.save()
-    return True
+    return result
 
 
 def _run_npc_admin_helper() -> int | None:
@@ -120,13 +125,18 @@ def main(argv: list[str] | None = None) -> int:
     if args.reset_config:
         config = AppConfig()
         config.save()
+    auto_login_result = None
     if args.demo:
         config.enter_demo()
     else:
-        _try_auto_login(config)
+        auto_login_result = _try_auto_login(config)
 
     theme = ThemeManager(app, config)
-    ctx = AppContext(config, theme)
+    ctx = AppContext(
+        config,
+        theme,
+        server_payload=(auto_login_result or {}).get("server"),
+    )
     window = MainWindow(ctx)
     instance.show_requested.connect(window.restore_from_tray)
     window.show()

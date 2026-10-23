@@ -155,6 +155,15 @@ flowchart LR
 - RDP：客户端只保存本机加密配置，调用 Windows 原生 mstsc.exe；勾选 NPS 时使用 NPC 配置中的隧道地址。
 - OSS 密钥只在 ECS 环境变量中；客户端与管理后台都看不到明文。
 
+## 版本兼容
+
+- 服务端 `/api/health`、登录/注册响应会返回 `api_version`、`min_client_version` 和 `features`；响应头同时带 `X-NexHub-Api-Version`。
+- 客户端请求带 `X-NexHub-Client-Version` / `X-NexHub-Client-Api-Version`，登录后读取并保存服务端兼容信息。
+- 旧服务端（没有 `api_version`）自动进入 legacy 兼容模式：登录、共享、下载、RDP、心跳等核心功能继续可用；NPC 一键自动配置保留尝试入口，若服务端确实不支持会提示升级服务端或手动配置。
+- 新服务端对明确上报了过低版本的客户端返回 `426`；未上报版本的旧客户端仍保持兼容。
+- 设置 → ECS 服务器会显示服务端版本、API 版本和兼容提示。
+- 只有 API 发生不兼容变化时才递增 `API_VERSION`；每次发布仍应递增应用版本号，避免同名 beta 构建无法被更新检查区分。
+
 ## 目录结构
 
 ```text

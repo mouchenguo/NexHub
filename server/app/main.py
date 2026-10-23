@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import db
 from .common import client_ip
+from .compat import API_VERSION, MIN_CLIENT_VERSION, server_info
 from .config import settings
 from .routers import account, admin, auth, dashboard, devices, public, shares, tunnels
 
@@ -61,6 +62,9 @@ async def security_headers(request: Request, call_next):
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
     response.headers.setdefault("Referrer-Policy", "same-origin")
+    response.headers.setdefault("X-NexHub-Server-Version", settings.version)
+    response.headers.setdefault("X-NexHub-Api-Version", str(API_VERSION))
+    response.headers.setdefault("X-NexHub-Min-Client-Version", MIN_CLIENT_VERSION)
     if request.url.path.startswith("/admin"):
         response.headers.setdefault("Cache-Control", "no-store")
     return response
@@ -92,8 +96,8 @@ def health():
         db_ok = False
     return {
         "status": "ok" if db_ok else "degraded",
+        **server_info(),
         "service": "nexhub-server",
-        "version": settings.version,
         "database": "ok" if db_ok else "error",
         "time": db.utcnow(),
     }

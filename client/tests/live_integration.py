@@ -98,7 +98,17 @@ def main() -> int:
         config.server_url = base
         config.demo_mode = False
         api = ApiClient(config)
+        health = api.health()
+        check(
+            health.get("api_version") == 1
+            and "auto_tunnel" in health.get("features", []),
+            "服务端健康检查声明兼容信息",
+        )
         login = api.login("demo", "demo1234")
+        check(
+            login.get("server", {}).get("api_version") == 1,
+            "登录响应包含服务端兼容信息",
+        )
         config.token = login["token"]
         config.username = "demo"
         config.display_name = "演示用户"

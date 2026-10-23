@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from PyQt6.QtCore import QObject, pyqtSignal
 
 from .api_client import ApiClient
+from .compat import ServerCompatibility
 from .config import AppConfig
 from .embedded_server import EmbeddedServer
 from .plugins.memory_plugin import MemoryOptimizerPlugin
@@ -25,13 +26,23 @@ if TYPE_CHECKING:
 
 class AppContext(QObject):
     connection_changed = pyqtSignal(bool)
+    server_compat_changed = pyqtSignal(object)
     logout_requested = pyqtSignal()
 
-    def __init__(self, config: AppConfig, theme: ThemeManager, parent: QObject | None = None):
+    def __init__(
+        self,
+        config: AppConfig,
+        theme: ThemeManager,
+        parent: QObject | None = None,
+        server_payload: dict | None = None,
+    ):
         super().__init__(parent)
         self.config = config
         self.theme = theme
         self.api = ApiClient(config)
+        self.server_compat = ServerCompatibility()
+        if server_payload:
+            self.apply_server_compat(server_payload)
         self.embedded = EmbeddedServer(config.local_api_port)
         self.demo = DemoStore(config)
         self.downloads = DownloadService(config, self.api, self.demo)
@@ -91,6 +102,15 @@ class AppContext(QObject):
         token = str(result.get("token", ""))
         if not token:
             raise ValueError("服务器未返回登录凭证")
+        compat_payload = result.get("server")
+        if not isinstance(compat_payload, dict):
+            try:
+                compat_payload = self.api.health()
+            except Exception:
+                compat_payload = {}
+        compatibility = self.apply_server_compat(compat_payload)
+        if compatibility.client_too_old:
+            raise ValueError(compatibility.error)
         credential_enc = CredentialStore.save(username, password) if remember else ""
         self.config.token = token
         self.config.username = str(user.get("username", username))
@@ -106,10 +126,17 @@ class AppContext(QObject):
         self.connection_changed.emit(True)
         return user
 
+    def apply_server_compat(self, payload: dict | None) -> ServerCompatibility:
+        compatibility = ServerCompatibility.from_payload(payload)
+        self.server_compat = compatibility
+        self.server_compat_changed.emit(compatibility)
+        return compatibility
+
     def logout(self) -> None:
         """停止心跳并立即回到演示模式。"""
         self.devices.stop()
         self.config.enter_demo()
+        self.apply_server_compat({})
         self.connection_changed.emit(False)
         self.logout_requested.emit()
 

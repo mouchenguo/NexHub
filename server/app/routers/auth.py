@@ -5,6 +5,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from .. import db
 from ..common import client_ip, user_payload
+from ..compat import (
+    require_compatible_client,
+    request_client_version,
+    server_info,
+)
 from ..deps import get_current_user, issue_token
 from ..registration import STATUS_APPROVED, evaluate_registration, status_error
 from ..schemas import ChangePasswordIn, LoginIn, RegisterIn
@@ -15,6 +20,7 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 @router.post("/register")
 def register(payload: RegisterIn, request: Request):
+    require_compatible_client(request)
     username = payload.username.strip()
     if db.query_one("SELECT id FROM users WHERE username = ?", (username,)):
         raise HTTPException(status_code=409, detail="该用户名已被注册")
@@ -27,10 +33,11 @@ def register(payload: RegisterIn, request: Request):
         (username, display_name, password_hash, salt, status, db.utcnow()),
     )
     user = db.query_one("SELECT * FROM users WHERE id = ?", (user_id,))
+    client_version = request_client_version(request) or "未上报"
     db.log_event(
         "info",
         "auth",
-        f"新用户注册：{username}（{review_message}）",
+        f"新用户注册：{username}（{review_message}，客户端 v{client_version}）",
         user_id=user_id,
         ip=client_ip(request),
     )
@@ -46,11 +53,13 @@ def register(payload: RegisterIn, request: Request):
         ),
         "token": issue_token(user) if approved else "",
         "user": user_payload(user),
+        "server": server_info(),
     }
 
 
 @router.post("/login")
 def login(payload: LoginIn, request: Request):
+    require_compatible_client(request)
     user = db.query_one("SELECT * FROM users WHERE username = ?", (payload.username.strip(),))
     if not user or not verify_password(
         payload.password, user["password_hash"], user["password_salt"]
@@ -76,19 +85,28 @@ def login(payload: LoginIn, request: Request):
         raise HTTPException(status_code=403, detail="账号已被管理员禁用")
     db.execute("UPDATE users SET last_login = ? WHERE id = ?", (db.utcnow(), user["id"]))
     user = db.query_one("SELECT * FROM users WHERE id = ?", (user["id"],))
+    client_version = request_client_version(request) or "未上报"
     db.log_event(
         "info",
         "auth",
-        f"用户登录：{user['username']}",
+        f"用户登录：{user['username']}（客户端 v{client_version}）",
         user_id=user["id"],
         ip=client_ip(request),
     )
-    return {"token": issue_token(user), "user": user_payload(user)}
+    return {
+        "token": issue_token(user),
+        "user": user_payload(user),
+        "server": server_info(),
+    }
 
 
 @router.get("/me")
 def me(user: dict = Depends(get_current_user)):
-    return {"user": user_payload(user), "quota": user_payload(user)["oss_quota"]}
+    return {
+        "user": user_payload(user),
+        "quota": user_payload(user)["oss_quota"],
+        "server": server_info(),
+    }
 
 
 @router.post("/password")

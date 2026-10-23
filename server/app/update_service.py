@@ -33,7 +33,7 @@ class ServerUpdateInfo:
     server_sha256: str = ""
 
 
-def _version_key(value: str) -> tuple:
+def version_key(value: str) -> tuple:
     """比较 v0.1.0-beta / 0.1.1 这类版本号（规则与客户端一致）。"""
     text = (value or "").strip().lower().lstrip("v")
     if "+" in text:
@@ -123,7 +123,7 @@ def _from_github_release(
     return ServerUpdateInfo(
         current_version=current_version,
         latest_version=latest_version,
-        update_available=_version_key(latest_version) > _version_key(current_version),
+        update_available=version_key(latest_version) > version_key(current_version),
         release_url=release_url,
         server_download_url=server_url or release_url,
         published_at=_format_moment(
@@ -149,7 +149,7 @@ def _from_manifest(data: dict, feed_url: str, current_version: str) -> ServerUpd
     return ServerUpdateInfo(
         current_version=current_version,
         latest_version=latest_version,
-        update_available=_version_key(latest_version) > _version_key(current_version),
+        update_available=version_key(latest_version) > version_key(current_version),
         release_url=urljoin(feed_url, page_url),
         server_download_url=urljoin(feed_url, raw_server),
         published_at=_format_moment(str(data.get("published_at") or "")),
@@ -190,7 +190,7 @@ def check_for_server_update(
             raise ValueError("更新源没有可用的 Release")
         latest = max(
             releases,
-            key=lambda item: _version_key(str(item.get("tag_name") or "")),
+            key=lambda item: version_key(str(item.get("tag_name") or "")),
         )
         return _from_github_release(latest, current_version, feed_url)
     if isinstance(data, dict) and "releases" in data:
@@ -203,7 +203,7 @@ def check_for_server_update(
             raise ValueError("更新源没有可用的 Release")
         latest = max(
             releases,
-            key=lambda item: _version_key(str(item.get("tag_name") or "")),
+            key=lambda item: version_key(str(item.get("tag_name") or "")),
         )
         return _from_github_release(latest, current_version, feed_url)
     if isinstance(data, dict):

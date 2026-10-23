@@ -6,6 +6,7 @@
   "server_bundle_url": "NexHub-Server-Bundle.zip",
   "published_at": "2026-10-23",
   "notes": [
+    "新增客户端/服务端兼容握手：协议版本、最低客户端版本与能力声明",
     "服务端管理后台新增检查更新：读取 GitHub Releases，显示版本、部署包与 SHA-256",
     "新增 NPC 一键自动配置：服务器自动创建/修复 NPS 主机与 TCP 隧道",
     "客户端自动安装 NPC、写入 npc.conf、重启服务并显示公网 RDP 地址",
@@ -14,5 +15,5 @@
     "Release 客户端资产只保留一个 NexHub-v0.1.0-beta.exe"
   ],
   "sha256": "6BDC182F4676D54D720746D3211FAAA74C1E402FD811AE90B0CF2B1D79A13BC6",
-  "server_sha256": "7BE002573BBC11CFDF0103D42A3537BC60E72961F76DEDD79B57F53E3E51AE14"
+  "server_sha256": "A37479E5E4CA6F3E25A1818F232ED660C5BC5E9BDD0404CA50E0FA6B34890AF7"
 }

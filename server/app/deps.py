@@ -4,6 +4,7 @@ from __future__ import annotations
 from fastapi import Header, HTTPException, Request
 
 from . import db
+from .compat import require_compatible_client
 from .security import create_token, decode_token
 
 ADMIN_COOKIE = "nexhub_admin"
@@ -31,6 +32,7 @@ def _bearer_token(authorization: str | None) -> str:
 def get_current_user(
     request: Request, authorization: str | None = Header(default=None)
 ) -> dict:
+    require_compatible_client(request)
     token = _bearer_token(authorization) or request.cookies.get(ADMIN_COOKIE, "")
     user = _user_from_token(token)
     if not user:
@@ -48,6 +50,7 @@ def get_optional_user(
 def get_admin_user(
     request: Request, authorization: str | None = Header(default=None)
 ) -> dict:
+    require_compatible_client(request)
     token = _bearer_token(authorization) or request.cookies.get(ADMIN_COOKIE, "")
     user = _user_from_token(token)
     if not user:

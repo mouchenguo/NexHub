@@ -14,6 +14,7 @@ from qfluentwidgets import (
     PasswordLineEdit,
 )
 
+from ..compat import FEATURE_AUTO_TUNNEL
 from ..config import normalize_server_url
 from ..services.npc_service import NpcManager
 from ..services.nps_service import check_nps
@@ -43,6 +44,7 @@ class NpcSettingsPanel(QWidget):
         self._startup_checked = False
         self._build()
         self.ctx.connection_changed.connect(self._on_connection_changed)
+        self.ctx.server_compat_changed.connect(self._on_compat_changed)
 
     # ------------------------------------------------------------------
     def _build(self) -> None:
@@ -98,14 +100,14 @@ class NpcSettingsPanel(QWidget):
             icon=FIF.SYNC,
             on_click=self._auto_configure_clicked,
         )
-        self.auto_button.setEnabled(self.ctx.online)
         layout.addWidget(self.auto_button)
-        auto_hint = CaptionLabel(
+        self.auto_hint = CaptionLabel(
             "登录后点击：服务器自动创建当前设备的 NPS 主机与 TCP 隧道，"
             "客户端自动写入 npc.conf 并重启 NPC。首次可能需要管理员授权。"
         )
-        auto_hint.setWordWrap(True)
-        layout.addWidget(auto_hint)
+        self.auto_hint.setWordWrap(True)
+        layout.addWidget(self.auto_hint)
+        self._sync_auto_availability()
 
         self.config_box = QWidget()
         config_layout = QVBoxLayout(self.config_box)
@@ -175,10 +177,47 @@ class NpcSettingsPanel(QWidget):
 
     # ------------------------------------------------------------------
     def _on_connection_changed(self, online: bool) -> None:
-        busy = bool(self._auto_tunnel_worker and self._auto_tunnel_worker.isRunning())
-        self.auto_button.setEnabled(bool(online) and not busy)
+        self._sync_auto_availability()
         if not online:
             self.nps_status.setText("登录后可一键自动配置 NPC")
+
+    def _on_compat_changed(self, _compat) -> None:
+        self._sync_auto_availability()
+
+    def _sync_auto_availability(self, busy: bool | None = None) -> None:
+        if busy is None:
+            busy = bool(
+                self._auto_tunnel_worker and self._auto_tunnel_worker.isRunning()
+            )
+        online = bool(self.ctx.online)
+        compat = self.ctx.server_compat
+        supported = compat.supports(FEATURE_AUTO_TUNNEL)
+        self.auto_button.setEnabled(online and supported and not busy)
+        if busy:
+            self.auto_button.setText("自动配置中...")
+        elif online and not supported:
+            self.auto_button.setText("一键自动配置不可用")
+        else:
+            self.auto_button.setText("一键自动配置 NPC")
+        if not online:
+            self.auto_hint.setText("登录后可一键自动配置 NPC。")
+        elif not compat.checked:
+            self.auto_hint.setText("正在读取服务端兼容信息，登录后自动检测。")
+        elif compat.legacy:
+            self.auto_hint.setText(
+                "当前服务端为旧版，未声明 auto_tunnel 能力。"
+                "可以尝试一键配置；如提示服务端版本过低，请升级服务端或手动填写 NPS 地址和 vkey。"
+            )
+        elif not supported:
+            self.auto_hint.setText(
+                "当前服务端未声明 auto_tunnel 能力。"
+                "请升级服务端，或使用下方手动配置 NPS 地址和 vkey。"
+            )
+        else:
+            self.auto_hint.setText(
+                "服务器自动创建当前设备的 NPS 主机与 TCP 隧道，"
+                "客户端自动写入 npc.conf 并重启 NPC。首次可能需要管理员授权。"
+            )
 
     def startup_check(self) -> None:
         if self._startup_checked:
@@ -334,6 +373,14 @@ class NpcSettingsPanel(QWidget):
     def _start_auto_config(self, force: bool, notify: bool) -> None:
         if self._auto_tunnel_worker and self._auto_tunnel_worker.isRunning():
             return
+        if not self.ctx.server_compat.supports(FEATURE_AUTO_TUNNEL):
+            if notify:
+                self._error(
+                    "当前服务端版本过低，不支持 NPC 一键自动配置。"
+                    "请升级服务端，或手动填写 NPS 地址和 vkey。",
+                    "服务端版本不兼容",
+                )
+            return
         self._set_busy(True)
         self.nps_status.setText("正在向服务器申请 NPS 主机与隧道，并配置本机 NPC...")
         self._auto_tunnel_worker = FunctionWorker(
@@ -486,15 +533,13 @@ class NpcSettingsPanel(QWidget):
 
     def _set_busy(self, busy: bool) -> None:
         self.install_button.setEnabled(not busy)
-        self.auto_button.setEnabled(not busy and self.ctx.online)
-        self.auto_button.setText("自动配置中..." if busy else "一键自动配置 NPC")
+        self._sync_auto_availability(busy)
         self.config_box.setEnabled(not busy)
         if busy:
             self.nps_status.setText("正在请求管理员权限/执行操作...")
 
     def _set_idle(self) -> None:
-        self.auto_button.setEnabled(self.ctx.online)
-        self.auto_button.setText("一键自动配置 NPC")
+        self._sync_auto_availability()
         self.refresh()
 
     def _info(self, message: str, title: str = "操作成功") -> None:
