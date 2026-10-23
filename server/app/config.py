@@ -80,6 +80,10 @@ class Settings:
         or "https://api.github.com/repos/mouchenguo/NexHub/releases"
     )
     web_base: str = _env("NEXHUB_WEB_BASE", "").rstrip("/")
+    plugin_market_url: str = (
+        _env("NEXHUB_PLUGIN_MARKET_URL", "http://47.108.130.177:8001/nexhub").strip().rstrip("/")
+        or "http://47.108.130.177:8001/nexhub"
+    )
     cookie_secure: bool = _env_bool("NEXHUB_COOKIE_SECURE", False)
     max_oss_bytes: int = _env_int("NEXHUB_MAX_OSS_BYTES", 5 * GIB)
     oss_default_quota_gb: int = _env_int("NEXHUB_OSS_QUOTA_GB", 50)

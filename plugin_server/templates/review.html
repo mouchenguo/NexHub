@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>插件审核 · NexHub</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="stylesheet" href="/nexhub/assets/site.css">
+</head>
+<body>
+<header class="topbar">
+    <a class="brand" href="/nexhub">
+        <span class="brand-mark">N</span>
+        <span>NexHub Plugins<small>REVIEW CONSOLE</small></span>
+    </a>
+    <nav class="nav">
+        <a href="/nexhub">广场介绍</a>
+        <a href="/nexhub/plugin">插件广场</a>
+        <a class="nav-admin" href="/nexhub/plugin/review">审核后台</a>
+    </nav>
+</header>
+
+<main class="wrap">
+    <section class="download-shell">
+        <div class="download-head">
+            <div class="eyebrow">Plugin Review</div>
+            <h1>插件审核</h1>
+            <p>待审核 {{PENDING_COUNT}} 个 · 审核通过后会立即更新插件广场清单和下载文件</p>
+        </div>
+
+        {{REVIEW_MESSAGE}}
+
+        <div class="panel" style="margin-top:24px">
+            <div class="section-head" style="margin-bottom:8px"><div><div class="eyebrow">Pending</div><h2 style="font-size:20px">待审核队列</h2></div></div>
+            <div class="review-list">{{PENDING_ITEMS}}</div>
+        </div>
+
+        <div class="panel" style="margin-top:14px">
+            <div class="section-head" style="margin-bottom:8px"><div><div class="eyebrow">Audit</div><h2 style="font-size:20px">最近审核记录</h2></div></div>
+            <ul class="audit-list">{{AUDIT_ITEMS}}</ul>
+        </div>
+
+        <div class="download-links">
+            <a href="/nexhub/plugin">← 返回插件广场</a>
+            <a href="/nexhub">广场介绍</a>
+        </div>
+    </section>
+</main>
+
+<footer class="footer">
+    <span>NexHub Plugin Review · 独立审核系统</span>
+    <span>请勿公开分享审核凭据</span>
+</footer>
+</body>
+</html>

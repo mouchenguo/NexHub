@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>NexHub · 文件共享、远程桌面与插件工作台</title>
+    <meta name="description" content="NexHub 是面向 Windows 的文件共享、远程桌面和插件工作台。">
+    <link rel="stylesheet" href="/static/nexhub.css">
+</head>
+<body>
+<header class="topbar">
+    <a class="brand" href="/nexhub">
+        <span class="brand-mark">N</span>
+        <span>NexHub<small>DESKTOP WORKSPACE</small></span>
+    </a>
+    <nav class="nav">
+        <a href="/nexhub">首页</a>
+        <a href="{{ plugin_market_url }}/plugin" target="_blank" rel="noreferrer">插件广场</a>
+        <a href="/nexhub/downloads">下载</a>
+        <a href="{{ github_url }}" target="_blank" rel="noreferrer">GitHub</a>
+        <a class="nav-admin" href="/admin">管理后台</a>
+    </nav>
+</header>
+
+<main class="wrap">
+    <section class="hero">
+        <div>
+            <div class="eyebrow">NexHub · Windows 工作台</div>
+            <h1>文件、远程桌面与插件<br><span>收进一个工作台</span></h1>
+            <p class="lead">在本机发布文件或文件夹，用 Windows 原生 RDP 连接主机，再通过独立进程插件扩展能力。账号、共享、隧道和插件都集中在一个清爽的桌面客户端里。</p>
+            <div class="hero-actions">
+                <a class="btn btn-primary" href="/nexhub/downloads">下载 Windows 客户端</a>
+                <a class="btn btn-ghost" href="{{ plugin_market_url }}/plugin" target="_blank" rel="noreferrer">打开插件广场 →</a>
+            </div>
+            <div class="hero-meta">当前版本 <b>v{{ latest.version }}</b> · Windows 10 / 11 x64 · 插件独立进程运行</div>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+            <div class="art-window">
+                <div class="art-bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i> NexHub · 工作台</div>
+                <div class="art-body">
+                    <div class="art-side">
+                        <div class="art-line active"></div>
+                        <div class="art-line"></div>
+                        <div class="art-line"></div>
+                        <div class="art-line"></div>
+                    </div>
+                    <div class="art-main">
+                        <div class="art-greeting">下午好，NexHub<small>你的工作台已就绪</small></div>
+                        <div class="art-cards">
+                            <div class="art-card"><strong>12</strong><span>活跃共享</span></div>
+                            <div class="art-card"><strong>3</strong><span>远程主机</span></div>
+                        </div>
+                        <div class="art-plugin"><i>✦</i><span><b>插件广场</b>内存优化 · 域名定向加速</span></div>
+                        <div class="art-plugin"><i>↗</i><span><b>NPS 内网穿透</b>一键配置 NPC</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section" id="features">
+        <div class="section-head">
+            <div><div class="eyebrow">Workspace</div><h2>一个客户端，覆盖常用场景</h2></div>
+            <a class="text-link" href="/nexhub/downloads">查看下载 →</a>
+        </div>
+        <div class="feature-grid">
+            <article class="feature-card"><div class="feature-icon">◈</div><h3>文件共享</h3><p>按文件或文件夹发布共享，支持 OSS 长期缓存与临时穿透，生成可直接访问的分享链接。</p></article>
+            <article class="feature-card"><div class="feature-icon">◍</div><h3>RDP 远程桌面</h3><p>保存常用主机，调用 Windows 原生 mstsc，密码本地加密；支持经 NPS 隧道连接内网主机。</p></article>
+            <article class="feature-card"><div class="feature-icon">↗</div><h3>NPS 内网穿透</h3><p>服务端创建主机与隧道，客户端自动写入 NPC 配置并重启服务，无需手填 vkey。</p></article>
+            <article class="feature-card"><div class="feature-icon">✦</div><h3>独立插件</h3><p>插件在独立宿主进程运行，单个插件崩溃不会退出主程序；支持远程安装、更新和本地导入。</p></article>
+            <article class="feature-card"><div class="feature-icon">⌁</div><h3>在线设备</h3><p>同一账号的设备自动上报在线状态，在另一台电脑上发现并连接你的主机。</p></article>
+            <article class="feature-card"><div class="feature-icon">◐</div><h3>轻量本地数据</h3><p>配置与凭证保存在本机，关闭窗口后可通过托盘继续运行，换机时重新登录即可。</p></article>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="split">
+            <article class="panel">
+                <div class="eyebrow">Latest Release</div>
+                <h2>最新版本 <span class="release-version">v{{ latest.version }}</span></h2>
+                <p>下载 Windows 单文件客户端，或获取服务端部署包。</p>
+                <ul class="note-list">
+                    {% for note in latest.notes[:3] %}<li>{{ note }}</li>{% endfor %}
+                </ul>
+                <div class="panel-actions">
+                    <a class="btn btn-primary" href="/nexhub/downloads">前往下载</a>
+                    <a class="btn btn-ghost" href="{{ github_release_url }}" target="_blank" rel="noreferrer">GitHub Release</a>
+                </div>
+            </article>
+            <article class="panel">
+                <div class="eyebrow">Plugin Market</div>
+                <h2>插件广场</h2>
+                <p>浏览已有插件，上传自己的插件包；上传内容需审核后才会出现在广场。</p>
+                <div class="plugin-list">
+                    <div class="plugin-row"><span class="plugin-glyph">◍</span><span><strong>内存优化</strong><small>系统工具 · 回收闲置内存</small></span><a href="{{ plugin_market_url }}/plugin" target="_blank" rel="noreferrer">查看</a></div>
+                    <div class="plugin-row"><span class="plugin-glyph">↗</span><span><strong>域名定向加速</strong><small>网络工具 · 白名单域名代理</small></span><a href="{{ plugin_market_url }}/plugin" target="_blank" rel="noreferrer">查看</a></div>
+                </div>
+                <div class="panel-actions" style="margin-top:16px">
+                    <a class="btn btn-primary" href="{{ plugin_market_url }}/plugin" target="_blank" rel="noreferrer">进入网页版广场</a>
+                    <a class="btn btn-ghost" href="{{ plugin_market_url }}">广场介绍</a>
+                </div>
+            </article>
+        </div>
+    </section>
+</main>
+
+<footer class="footer">
+    <span>NexHub v{{ latest.version }} · 文件共享与远程主机 · <a href="{{ github_url }}" target="_blank" rel="noreferrer">GitHub</a></span>
+    <span><a href="{{ plugin_market_url }}/plugin" target="_blank" rel="noreferrer">插件广场</a> · <a href="{{ plugin_market_url }}/plugin/review" target="_blank" rel="noreferrer">插件审核</a> · <a class="footer-admin" href="/admin">管理后台</a></span>
+</footer>
+</body>
+</html>
+

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>插件广场 · NexHub</title>
+    <meta name="description" content="浏览、下载和上传 NexHub 插件。">
+    <link rel="stylesheet" href="/nexhub/assets/site.css">
+</head>
+<body>
+<header class="topbar">
+    <a class="brand" href="/nexhub">
+        <span class="brand-mark">N</span>
+        <span>NexHub Plugins<small>MARKETPLACE</small></span>
+    </a>
+    <nav class="nav">
+        <a href="/nexhub">广场介绍</a>
+        <a href="/nexhub/plugin">插件广场</a>
+        <a href="{{MAIN_SITE}}/downloads" target="_blank" rel="noreferrer">下载客户端</a>
+        <a href="{{GITHUB_URL}}" target="_blank" rel="noreferrer">GitHub</a>
+        <a class="nav-admin" href="/nexhub/plugin/review">审核</a>
+    </nav>
+</header>
+
+<main class="wrap">
+    <section class="download-shell">
+        <div class="download-head">
+            <div class="eyebrow">Plugin Marketplace</div>
+            <h1>插件广场</h1>
+            <p>{{PLUGIN_COUNT}} 个已发布插件 · 下载后由 NexHub 客户端安装，插件在独立宿主进程中运行</p>
+        </div>
+
+        {{UPLOAD_MESSAGE}}
+
+        <div class="panel" style="margin-top:24px">
+            <div class="section-head" style="margin-bottom:8px">
+                <div><div class="eyebrow">Published</div><h2 style="font-size:20px">全部插件</h2></div>
+                <input id="plugin-search" class="plugin-search" type="search" placeholder="搜索插件名称或分类...">
+            </div>
+            <div class="market-grid" id="plugin-grid">{{PLUGIN_CARDS}}</div>
+            <div id="plugin-empty" class="empty-state" hidden>没有匹配的插件</div>
+        </div>
+
+        <div class="panel upload-panel" id="upload">
+            <div class="eyebrow">Submit</div>
+            <h2>上传插件</h2>
+            <p>上传 zip 插件包后进入审核队列，审核通过才会出现在上方广场。插件包必须包含根目录的 <code>manifest.json</code> 和 <code>plugin.py</code>，可选 <code>icon.png</code>。</p>
+            <form class="upload-form" action="/nexhub/plugin/upload" method="post" enctype="multipart/form-data">
+                <label>插件 zip 包 <input type="file" name="file" accept=".zip,application/zip" required></label>
+                <input type="text" name="uploader" maxlength="80" placeholder="上传者昵称（可选）">
+                <textarea name="notes" maxlength="500" placeholder="版本说明、测试情况或审核备注（可选）"></textarea>
+                <div><button class="btn btn-primary" type="submit">提交审核</button></div>
+            </form>
+        </div>
+
+        <div class="download-links">
+            <a href="/nexhub">← 广场介绍</a>
+            <a href="/nexhub/plugin/api" target="_blank" rel="noreferrer">JSON API</a>
+            <a href="/nexhub/plugin/review">审核后台</a>
+        </div>
+    </section>
+</main>
+
+<footer class="footer">
+    <span>NexHub Plugin Market · 唯一插件广场</span>
+    <span><a href="{{MAIN_SITE}}">主站</a> · <a href="{{GITHUB_URL}}" target="_blank" rel="noreferrer">GitHub</a></span>
+</footer>
+<script>
+(function () {
+    const input = document.getElementById('plugin-search');
+    const grid = document.getElementById('plugin-grid');
+    const empty = document.getElementById('plugin-empty');
+    if (!input || !grid) return;
+    input.addEventListener('input', function () {
+        const q = input.value.trim().toLowerCase();
+        let visible = 0;
+        grid.querySelectorAll('.plugin-card').forEach(function (card) {
+            const match = !q || card.textContent.toLowerCase().includes(q);
+            card.hidden = !match;
+            if (match) visible += 1;
+        });
+        empty.hidden = visible !== 0;
+    });
+})();
+</script>
+</body>
+</html>

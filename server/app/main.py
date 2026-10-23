@@ -6,14 +6,14 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import db
 from .common import client_ip
 from .compat import API_VERSION, MIN_CLIENT_VERSION, server_info
 from .config import settings
-from .routers import account, admin, auth, dashboard, devices, public, shares, tunnels
+from .routers import account, admin, auth, dashboard, devices, public, shares, site, tunnels
 
 logger = logging.getLogger("nexhub.server")
 
@@ -37,13 +37,9 @@ app = FastAPI(
 app.mount("/static", StaticFiles(directory=str(settings.static_dir)), name="static")
 downloads_dir = settings.base_dir / "downloads"
 downloads_dir.mkdir(parents=True, exist_ok=True)
-app.mount(
-    "/downloads",
-    StaticFiles(directory=str(downloads_dir), html=True),
-    name="downloads",
-)
 
 for router in (
+    site.router,
     auth.router,
     dashboard.router,
     shares.router,
@@ -101,13 +97,3 @@ def health():
         "database": "ok" if db_ok else "error",
         "time": db.utcnow(),
     }
-
-
-@app.get("/download")
-def download():
-    return RedirectResponse("/downloads/", status_code=307)
-
-
-@app.get("/")
-def index():
-    return RedirectResponse("/admin", status_code=307)

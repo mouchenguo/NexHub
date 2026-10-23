@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>下载 NexHub · v{{ latest.version }}</title>
+    <meta name="description" content="下载 NexHub Windows 客户端与服务端部署包。">
+    <link rel="stylesheet" href="/static/nexhub.css">
+</head>
+<body>
+<header class="topbar">
+    <a class="brand" href="/nexhub">
+        <span class="brand-mark">N</span>
+        <span>NexHub<small>DESKTOP WORKSPACE</small></span>
+    </a>
+    <nav class="nav">
+        <a href="/nexhub">首页</a>
+        <a href="{{ plugin_market_url }}/plugin" target="_blank" rel="noreferrer">插件广场</a>
+        <a href="/nexhub/downloads">下载</a>
+        <a href="{{ github_url }}" target="_blank" rel="noreferrer">GitHub</a>
+        <a class="nav-admin" href="/admin">管理后台</a>
+    </nav>
+</header>
+
+<main class="wrap">
+    <section class="download-shell">
+        <div class="download-head">
+            <div class="eyebrow">Download</div>
+            <h1>下载 NexHub</h1>
+            <p>Windows 10 / 11 x64 · 当前版本 v{{ latest.version }} · 下载后直接运行，无需安装</p>
+        </div>
+
+        <div class="download-grid">
+            {% for item in download_items %}
+            <article class="download-card{% if item.primary %} primary{% endif %}">
+                <div class="download-tag{% if not item.primary %} server{% endif %}">{{ item.tag }}</div>
+                <h2>{{ item.title }}</h2>
+                <p>{{ item.description }}</p>
+                {% if item.available %}
+                <a class="btn {% if item.primary %}btn-primary{% else %}btn-ghost{% endif %}" href="{{ item.href }}" download>{{ item.button }}</a>
+                {% else %}
+                <a class="btn btn-ghost" href="{{ github_release_url }}" target="_blank" rel="noreferrer">前往 GitHub Release</a>
+                {% endif %}
+            </article>
+            {% endfor %}
+        </div>
+
+        {% if latest.sha256 %}
+        <div class="download-extra">
+            <span>客户端 SHA-256</span>
+            <code>{{ latest.sha256 }}</code>
+        </div>
+        {% endif %}
+        {% if latest.server_sha256 %}
+        <div class="download-extra">
+            <span>服务端部署包 SHA-256</span>
+            <code>{{ latest.server_sha256 }}</code>
+        </div>
+        {% endif %}
+
+        <div class="download-links">
+            <a href="/nexhub">← 返回首页</a>
+            <a href="{{ github_release_url }}" target="_blank" rel="noreferrer">GitHub Release</a>
+            <a href="{{ github_url }}" target="_blank" rel="noreferrer">源代码</a>
+        </div>
+    </section>
+</main>
+
+<footer class="footer">
+    <span>NexHub v{{ latest.version }} · 下载页</span>
+    <span><a class="footer-admin" href="/admin">管理后台</a></span>
+</footer>
+</body>
+</html>
