@@ -12,7 +12,7 @@ from ..compat import (
 )
 from ..deps import get_current_user, issue_token
 from ..registration import STATUS_APPROVED, evaluate_registration, status_error
-from ..schemas import ChangePasswordIn, LoginIn, RegisterIn
+from ..schemas import ChangePasswordIn, LoginIn, RegisterIn, UpdateProfileIn
 from ..security import hash_password, verify_password
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -107,6 +107,32 @@ def me(user: dict = Depends(get_current_user)):
         "quota": user_payload(user)["oss_quota"],
         "server": server_info(),
     }
+
+
+@router.patch("/profile")
+def update_profile(
+    payload: UpdateProfileIn,
+    request: Request,
+    user: dict = Depends(get_current_user),
+):
+    display_name = payload.display_name
+    if not display_name:
+        raise HTTPException(status_code=400, detail="昵称不能为空")
+    if any(ord(char) < 32 or ord(char) == 127 for char in display_name):
+        raise HTTPException(status_code=400, detail="昵称不能包含换行或控制字符")
+    db.execute(
+        "UPDATE users SET display_name = ? WHERE id = ?",
+        (display_name, user["id"]),
+    )
+    updated = db.query_one("SELECT * FROM users WHERE id = ?", (user["id"],))
+    db.log_event(
+        "info",
+        "account",
+        f"用户 {user['username']} 修改昵称为：{display_name}",
+        user_id=user["id"],
+        ip=client_ip(request),
+    )
+    return {"ok": True, "user": user_payload(updated)}
 
 
 @router.post("/password")

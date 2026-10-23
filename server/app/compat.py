@@ -20,6 +20,7 @@ FEATURES = (
     "nps_tunnels",
     "auto_tunnel",
     "server_update_check",
+    "profile_update",
 )
 
 

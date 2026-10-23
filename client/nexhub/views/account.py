@@ -18,6 +18,7 @@ from qfluentwidgets import (
     FluentStyleSheet,
     InfoBar,
     InfoBarPosition,
+    LineEdit,
     PasswordLineEdit,
     ProgressBar,
     StrongBodyLabel,
@@ -36,6 +37,90 @@ from ..widgets.common import (
 )
 from ..workers import FunctionWorker
 from .base import BasePage
+
+
+class ChangeNicknameDialog(QDialog):
+    def __init__(self, ctx, parent: QWidget | None = None):
+        super().__init__(parent)
+        self.ctx = ctx
+        self._worker: FunctionWorker | None = None
+        FluentStyleSheet.DIALOG.apply(self)
+        self.setWindowTitle("NexHub · 修改昵称")
+        self.setFixedWidth(430)
+        self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
+        self._build()
+
+    def _build(self) -> None:
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setSpacing(8)
+        layout.addWidget(TitleLabel("修改昵称"))
+        layout.addWidget(CaptionLabel("昵称仅用于界面展示，登录用户名不会改变。"))
+        layout.addSpacing(6)
+
+        layout.addWidget(BodyLabel("新昵称（1-32 个字符）"))
+        self.nickname = LineEdit()
+        self.nickname.setPlaceholderText("请输入昵称")
+        self.nickname.setMaxLength(32)
+        current = self.ctx.config.display_name or self.ctx.config.username
+        self.nickname.setText(current)
+        self.nickname.selectAll()
+        self.nickname.returnPressed.connect(self._submit)
+        layout.addWidget(self.nickname)
+        layout.addSpacing(4)
+        layout.addStretch(1)
+
+        footer = QHBoxLayout()
+        footer.addStretch(1)
+        self.cancel_button = make_button("取消", on_click=self.reject)
+        self.submit = make_button("保存修改", primary=True, on_click=self._submit)
+        footer.addWidget(self.cancel_button)
+        footer.addWidget(self.submit)
+        layout.addLayout(footer)
+        if not self.ctx.online:
+            self.submit.setEnabled(False)
+            layout.addWidget(CaptionLabel("离线体验模式不支持修改昵称"))
+        elif not self.ctx.can_update_nickname:
+            self.submit.setEnabled(False)
+            layout.addWidget(CaptionLabel("当前服务端不支持修改昵称，请升级服务端"))
+        self.nickname.setFocus()
+
+    def _submit(self) -> None:
+        if self._worker and self._worker.isRunning():
+            return
+        nickname = self.nickname.text().strip()
+        current = (self.ctx.config.display_name or self.ctx.config.username).strip()
+        if not nickname:
+            self._error("昵称不能为空")
+            return
+        if len(nickname) > 32:
+            self._error("昵称不能超过 32 个字符")
+            return
+        if any(ord(char) < 32 or ord(char) == 127 for char in nickname):
+            self._error("昵称不能包含换行或控制字符")
+            return
+        if nickname == current:
+            self.ctx.notify("昵称未变化", "info")
+            self.accept()
+            return
+        self.submit.setEnabled(False)
+        self.submit.setText("正在保存...")
+        self._worker = FunctionWorker(self.ctx.update_nickname, nickname, parent=self)
+        self._worker.succeeded.connect(self._on_success)
+        self._worker.failed.connect(self._on_failed)
+        self._worker.start()
+
+    def _error(self, message: str) -> None:
+        InfoBar.error("无法修改", message, parent=self, position=InfoBarPosition.TOP)
+
+    def _on_success(self, _result) -> None:
+        self.ctx.notify("昵称已更新", "success")
+        self.accept()
+
+    def _on_failed(self, message: str) -> None:
+        self.submit.setEnabled(True)
+        self.submit.setText("保存修改")
+        self._error(message)
 
 
 class ChangePasswordDialog(QDialog):
@@ -164,6 +249,10 @@ class AccountPage(BasePage):
 
         actions = QHBoxLayout()
         actions.setSpacing(8)
+        self.nickname_button = make_button(
+            "修改昵称", icon=FIF.EDIT, on_click=self._change_nickname
+        )
+        actions.addWidget(self.nickname_button)
         actions.addWidget(
             make_button("修改密码", icon=FIF.FINGERPRINT, on_click=self._change_password)
         )
@@ -308,6 +397,7 @@ class AccountPage(BasePage):
         self.role_badge.setIcon(FIF.PEOPLE)
         self.mode_badge.setText("离线体验" if not self.ctx.online else "ECS 在线")
         self.mode_badge.setIcon(FIF.INFO if not self.ctx.online else FIF.CONNECT)
+        self.nickname_button.setVisible(self.ctx.can_update_nickname)
         self.created_label.setText(f"加入时间 {format_time(user.get('created_at'))}")
         self.offline_hint.setVisible(not self.ctx.online)
 
@@ -363,6 +453,15 @@ class AccountPage(BasePage):
                 self.records_table.setItem(row, column, item)
 
     # ------------------------------------------------------------------
+    def _change_nickname(self) -> None:
+        if not self.ctx.online:
+            self.ctx.notify("离线体验模式不支持修改昵称", "warning")
+            return
+        if not self.ctx.can_update_nickname:
+            self.ctx.notify("当前服务端不支持修改昵称，请升级服务端", "warning")
+            return
+        ChangeNicknameDialog(self.ctx, self).exec()
+
     def _change_password(self) -> None:
         if not self.ctx.online:
             self.ctx.notify("离线体验模式不支持修改密码", "warning")

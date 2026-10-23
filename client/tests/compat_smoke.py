@@ -18,9 +18,11 @@ sys.path.insert(0, str(CLIENT_ROOT))
 from nexhub.api_client import ApiClient, ApiError  # noqa: E402
 from nexhub.compat import (  # noqa: E402
     FEATURE_AUTO_TUNNEL,
+    FEATURE_PROFILE_UPDATE,
     ServerCompatibility,
 )
 from nexhub.config import AppConfig  # noqa: E402
+from nexhub.paths import VERSION  # noqa: E402
 from nexhub.services.tunnel_service import TunnelService  # noqa: E402
 
 
@@ -35,13 +37,14 @@ current = ServerCompatibility.from_payload(
         "version": "0.1.0-beta",
         "api_version": 1,
         "min_client_version": "0.1.0-beta",
-        "features": ["auto_tunnel", "registration"],
+        "features": ["auto_tunnel", "registration", "profile_update"],
     }
 )
 check(
     current.checked
     and not current.legacy
     and current.supports(FEATURE_AUTO_TUNNEL)
+    and current.supports(FEATURE_PROFILE_UPDATE)
     and not current.message,
     "当前服务端兼容信息识别",
 )
@@ -66,7 +69,9 @@ missing_feature = ServerCompatibility.from_payload(
     }
 )
 check(
-    missing_feature.checked and not missing_feature.supports(FEATURE_AUTO_TUNNEL),
+    missing_feature.checked
+    and not missing_feature.supports(FEATURE_AUTO_TUNNEL)
+    and not missing_feature.supports(FEATURE_PROFILE_UPDATE),
     "新服务端明确缺少能力时禁用新功能",
 )
 
@@ -94,11 +99,16 @@ too_old = ServerCompatibility.from_payload(
 check(too_old.client_too_old and bool(too_old.error), "客户端低于最低版本时给出错误")
 
 unknown = ServerCompatibility.from_payload({})
-check(not unknown.checked and unknown.supports(FEATURE_AUTO_TUNNEL), "未检查时保持乐观兼容")
+check(
+    not unknown.checked
+    and unknown.supports(FEATURE_AUTO_TUNNEL)
+    and unknown.supports(FEATURE_PROFILE_UPDATE),
+    "未检查时保持乐观兼容",
+)
 
 client = ApiClient(AppConfig())
 check(
-    client.session.headers.get("X-NexHub-Client-Version") == "0.1.1"
+    client.session.headers.get("X-NexHub-Client-Version") == VERSION
     and client.session.headers.get("X-NexHub-Client-Api-Version") == "1",
     "客户端请求携带版本头",
 )

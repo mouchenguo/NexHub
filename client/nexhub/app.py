@@ -29,7 +29,7 @@ from qfluentwidgets import (
 
 from .context import AppContext
 from .paths import VERSION, resource_path
-from .views.account import ChangePasswordDialog
+from .views.account import ChangeNicknameDialog, ChangePasswordDialog
 from .views.account_panel import AccountPanel
 from .views.dashboard import DashboardPage
 from .views.my_shares import MySharesPage
@@ -108,8 +108,10 @@ class MainWindow(FluentWindow):
         self._add_pages()
         self.account_panel = AccountPanel(self.ctx, self)
         self.account_panel.avatar_requested.connect(self._choose_avatar)
+        self.account_panel.nickname_requested.connect(self._change_nickname)
         self.account_panel.password_requested.connect(self._change_password)
         self.ctx.connection_changed.connect(self._on_connection_changed)
+        self.ctx.profile_changed.connect(self._on_profile_changed)
         self._setup_tray()
         if self.ctx.server_compat.warning:
             QTimer.singleShot(
@@ -289,6 +291,15 @@ class MainWindow(FluentWindow):
         self.user_card.avatar.setRadius(12 if compacted else 32)
         self.user_card.update()
 
+    def _change_nickname(self) -> None:
+        if not self.ctx.online:
+            self.show_toast("离线体验模式不支持修改昵称", "warning")
+            return
+        if not self.ctx.can_update_nickname:
+            self.show_toast("当前服务端不支持修改昵称，请升级服务端", "warning")
+            return
+        ChangeNicknameDialog(self.ctx, self).exec()
+
     def _change_password(self) -> None:
         if not self.ctx.online:
             self.show_toast("离线体验模式不支持修改密码", "warning")
@@ -360,6 +371,13 @@ class MainWindow(FluentWindow):
             refresh = getattr(rdp_page, "refresh", None)
             if callable(refresh):
                 refresh()
+
+    def _on_profile_changed(self, _user: dict) -> None:
+        """昵称更新后同步窗口标题、用户卡片和当前页面。"""
+        self.refresh_shell()
+        current = self.stackedWidget.currentWidget()
+        if current is not None and hasattr(current, "on_show"):
+            current.on_show()
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)

@@ -101,7 +101,8 @@ def main() -> int:
         health = api.health()
         check(
             health.get("api_version") == 1
-            and "auto_tunnel" in health.get("features", []),
+            and "auto_tunnel" in health.get("features", [])
+            and "profile_update" in health.get("features", []),
             "服务端健康检查声明兼容信息",
         )
         login = api.login("demo", "demo1234")
@@ -130,6 +131,13 @@ def main() -> int:
             and profile.get("status") == "approved",
             "注册账号凭证可访问个人资料",
         )
+        renamed = api.update_profile("联调昵称")
+        check(
+            renamed.get("user", {}).get("display_name") == "联调昵称"
+            and api.me().get("user", {}).get("display_name") == "联调昵称",
+            "客户端修改昵称",
+        )
+        api.update_profile("联调注册用户")
         config.token = demo_token
 
         devices = DeviceService(config, api)

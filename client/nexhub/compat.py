@@ -9,6 +9,7 @@ from .services.update_service import version_key
 CLIENT_API_VERSION = 1
 MIN_SERVER_API_VERSION = 1
 FEATURE_AUTO_TUNNEL = "auto_tunnel"
+FEATURE_PROFILE_UPDATE = "profile_update"
 
 
 @dataclass(frozen=True)

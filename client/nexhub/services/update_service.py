@@ -30,7 +30,7 @@ def update_manifest_url(config: AppConfig) -> str:
 
 
 def version_key(value: str) -> tuple:
-    """比较 v0.1.0-beta / 0.1.1 这类版本号。"""
+    """比较 v0.1.0-beta / 0.1.2 这类版本号。"""
     text = (value or "").strip().lower().lstrip("v")
     if "-" in text:
         numeric, pre = text.split("-", 1)

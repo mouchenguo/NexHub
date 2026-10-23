@@ -273,7 +273,7 @@ curl http://127.0.0.1:8000/api/health
 正常返回示例：
 
 ```json
-{"status":"ok","service":"nexhub-server","version":"0.1.1","database":"ok"}
+{"status":"ok","service":"nexhub-server","version":"0.1.2","database":"ok"}
 ```
 
 初始化时会自动创建：
@@ -741,7 +741,7 @@ Windows 生产部署建议使用 Linux ECS + Nginx + HTTPS；RDP 由客户端调
 - [ ] 公网未开放 `8000`，`/admin` 有 IP 白名单或 VPN 保护
 - [ ] OSS Bucket 为私有，使用 RAM 子账号且权限最小化
 - [ ] 数据库、头像、`.env` 已纳入备份
-- [ ] 登录、发布、下载、头像上传、管理员重置密码均已测试
+- [ ] 登录、发布、下载、头像上传、昵称修改、管理员重置密码均已测试
 - [ ] 演示账号 `demo` 已禁用或已修改密码
 - [ ] `/api/docs` 和 `/admin` 按需限制来源（Nginx IP 白名单 / VPN）
 - [ ] nps（如启用）使用强 vkey，管理端口未暴露公网

@@ -130,15 +130,15 @@
     <main>
       <section class="hero">
         <div>
-          <div class="badge"><span class="dot"></span> v0.1.1 已发布</div>
+          <div class="badge"><span class="dot"></span> v0.1.2 已发布</div>
           <h1>把文件与远程桌面<br><span>放进同一个工作台</span></h1>
           <p class="lead">NexHub 是面向 Windows 的共享与远程主机客户端：文件共享、OSS 长期缓存、临时穿透、RDP 主机、同账号在线设备和 NPS 隧道集中管理。</p>
           <div class="actions" id="download">
-            <a class="btn btn-primary" href="NexHub-v0.1.1.exe" download>↓ 下载 Windows 客户端</a>
+            <a class="btn btn-primary" href="NexHub-v0.1.2.exe" download>↓ 下载 Windows 客户端</a>
             <a class="btn btn-ghost" href="NexHub-Server-Deploy.zip">服务端一键部署包</a>
             <a class="btn btn-ghost" href="latest.json">查看更新信息</a>
           </div>
-          <div class="meta">Windows 10 / 11 · 单文件安装包 · 当前版本 v0.1.1</div>
+          <div class="meta">Windows 10 / 11 · 单文件安装包 · 当前版本 v0.1.2</div>
         </div>
         <div class="preview" aria-hidden="true">
           <div class="preview-inner">
@@ -184,16 +184,14 @@
             </ul>
           </div>
           <div class="card" id="notes">
-            <div class="eyebrow">Release Notes</div><h2 style="font-size:24px;margin-bottom:16px">v0.1.1</h2>
+            <div class="eyebrow">Release Notes</div><h2 style="font-size:24px;margin-bottom:16px">v0.1.2</h2>
             <ul class="changelog">
-              <li>新增客户端/服务端兼容握手：API 版本、最低客户端版本与能力声明。</li>
-              <li>客户端请求上报版本；旧服务端自动降级兼容，过低客户端返回明确升级提示。</li>
-              <li>服务端管理后台新增检查更新，支持预发布版本与服务端部署包下载。</li>
-              <li>新增 NPC 一键自动配置：服务器自动创建/修复 NPS 主机与 TCP 隧道。</li>
-              <li>客户端自动安装 NPC、写入 npc.conf、重启服务并显示公网 RDP 地址。</li>
-              <li>NPS 客户端或隧道丢失时自动重建，已有 vkey 可幂等复用。</li>
-              <li>保留注册自动审核、管理后台审核和现有账号密码。</li>
-              <li>版本号升级为 v0.1.1，旧客户端可通过检查更新升级；Release 只保留一个客户端 exe。</li>
+              <li>新增修改昵称：登录后打开左下角账户面板即可修改，账号页同步提供入口。</li>
+              <li>昵称支持 1-32 个字符，自动去除首尾空格，并拒绝空值、换行和控制字符。</li>
+              <li>服务端新增 <code>PATCH /api/auth/profile</code>，只更新展示昵称，不改变登录用户名和密码。</li>
+              <li>修改后窗口标题、侧边栏用户卡片和账户资料立即同步，写入本地配置。</li>
+              <li>服务端声明 <code>profile_update</code> 能力；旧服务端未提供该能力时自动隐藏昵称编辑入口。</li>
+              <li>保留原有账号密码、头像、注册审核、共享与 NPS 功能；版本号升级为 v0.1.2。</li>
             </ul>
           </div>
         </div>
@@ -201,7 +199,7 @@
     </main>
 
     <footer>
-      <span>NexHub v0.1.1 · 文件共享与远程主机 · <a href="https://github.com/mouchenguo/NexHub" target="_blank" rel="noreferrer">GitHub</a></span>
+      <span>NexHub v0.1.2 · 文件共享与远程主机 · <a href="https://github.com/mouchenguo/NexHub" target="_blank" rel="noreferrer">GitHub</a></span>
       <span>更新清单：<a href="latest.json"><code>latest.json</code></a></span>
     </footer>
   </div>

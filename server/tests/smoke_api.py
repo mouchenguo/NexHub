@@ -49,7 +49,8 @@ def main() -> int:
         check(
             health_payload.get("api_version") == 1
             and health_payload.get("min_client_version")
-            and "auto_tunnel" in health_payload.get("features", []),
+            and "auto_tunnel" in health_payload.get("features", [])
+            and "profile_update" in health_payload.get("features", []),
             "健康检查声明协议版本与能力",
         )
         check(
@@ -80,7 +81,7 @@ def main() -> int:
         versioned_login = client.post(
             "/api/auth/login",
             json={"username": "demo", "password": "demo1234"},
-            headers={"X-NexHub-Client-Version": "0.1.1"},
+            headers={"X-NexHub-Client-Version": "0.1.2"},
         )
         check(versioned_login.status_code == 200, "当前版本客户端可正常登录")
 
@@ -151,6 +152,53 @@ def main() -> int:
             client.get("/api/account/avatar").status_code == 401,
             "头像接口需要鉴权",
         )
+
+        nickname = client.patch(
+            "/api/auth/profile",
+            json={"display_name": "  自动化昵称  "},
+            headers=demo_headers,
+        )
+        check(
+            nickname.status_code == 200
+            and nickname.json()["user"]["display_name"] == "自动化昵称",
+            "修改昵称并去除首尾空格",
+        )
+        me_after_nickname = client.get("/api/auth/me", headers=demo_headers)
+        check(
+            me_after_nickname.json()["user"]["display_name"] == "自动化昵称",
+            "昵称修改后个人资料同步",
+        )
+        empty_nickname = client.patch(
+            "/api/auth/profile",
+            json={"display_name": "   "},
+            headers=demo_headers,
+        )
+        check(empty_nickname.status_code == 400, "空昵称被拒绝")
+        control_nickname = client.patch(
+            "/api/auth/profile",
+            json={"display_name": "昵称\n注入"},
+            headers=demo_headers,
+        )
+        check(control_nickname.status_code == 400, "昵称中的控制字符被拒绝")
+        long_nickname = client.patch(
+            "/api/auth/profile",
+            json={"display_name": "x" * 33},
+            headers=demo_headers,
+        )
+        check(long_nickname.status_code == 422, "超长昵称被拒绝")
+        check(
+            client.patch(
+                "/api/auth/profile", json={"display_name": "未登录昵称"}
+            ).status_code
+            == 401,
+            "修改昵称需要登录",
+        )
+        restored_nickname = client.patch(
+            "/api/auth/profile",
+            json={"display_name": "演示用户"},
+            headers=demo_headers,
+        )
+        check(restored_nickname.status_code == 200, "恢复演示账号昵称")
 
         payload = {
             "name": "自动化测试共享",

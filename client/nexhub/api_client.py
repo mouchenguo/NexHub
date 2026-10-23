@@ -88,6 +88,11 @@ class ApiClient:
     def me(self) -> dict:
         return self._request("GET", "/api/auth/me")
 
+    def update_profile(self, display_name: str) -> dict:
+        return self._request(
+            "PATCH", "/api/auth/profile", json={"display_name": display_name}
+        )
+
     def change_password(self, old_password: str, new_password: str) -> dict:
         return self._request(
             "POST",

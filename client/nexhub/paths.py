@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 APP_NAME = "NexHub"
-VERSION = "0.1.1"
+VERSION = "0.1.2"
 CLIENT_ROOT = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = CLIENT_ROOT.parent
 

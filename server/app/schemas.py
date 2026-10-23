@@ -29,6 +29,15 @@ class ChangePasswordIn(BaseModel):
     new_password: str = Field(min_length=6, max_length=128)
 
 
+class UpdateProfileIn(BaseModel):
+    display_name: str = Field(max_length=32)
+
+    @field_validator("display_name", mode="before")
+    @classmethod
+    def strip_display_name(cls, value: str) -> str:
+        return value.strip() if isinstance(value, str) else value
+
+
 class ShareFileIn(BaseModel):
     path: str = Field(min_length=1, max_length=1024)
     size: int = Field(ge=0)

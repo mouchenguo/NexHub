@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from PyQt6.QtCore import QObject, pyqtSignal
 
 from .api_client import ApiClient
-from .compat import ServerCompatibility
+from .compat import FEATURE_PROFILE_UPDATE, ServerCompatibility
 from .config import AppConfig
 from .embedded_server import EmbeddedServer
 from .plugins.memory_plugin import MemoryOptimizerPlugin
@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 class AppContext(QObject):
     connection_changed = pyqtSignal(bool)
     server_compat_changed = pyqtSignal(object)
+    profile_changed = pyqtSignal(dict)
     logout_requested = pyqtSignal()
 
     def __init__(
@@ -65,6 +66,18 @@ class AppContext(QObject):
     def is_admin(self) -> bool:
         return self.config.role == "admin"
 
+    @property
+    def can_update_nickname(self) -> bool:
+        """旧服务端未声明 profile_update 时隐藏昵称编辑入口。"""
+        if not self.online:
+            return False
+        compat = self.server_compat
+        if not compat.checked:
+            return True
+        if compat.legacy:
+            return False
+        return compat.supports(FEATURE_PROFILE_UPDATE)
+
     def attach_window(self, window: "MainWindow") -> None:
         self.main_window = window
 
@@ -93,6 +106,25 @@ class AppContext(QObject):
         result = self.api.register(username, password, display_name)
         if result.get("token"):
             self._start_session(result, username, password, remember=False)
+        return result
+
+    def update_nickname(self, display_name: str) -> dict:
+        """修改昵称；登录用户名保持不变，仅更新展示名称。"""
+        if not self.online:
+            raise ValueError("离线体验模式不支持修改昵称")
+        display_name = display_name.strip()
+        if not display_name:
+            raise ValueError("昵称不能为空")
+        if len(display_name) > 32:
+            raise ValueError("昵称不能超过 32 个字符")
+        if any(ord(char) < 32 or ord(char) == 127 for char in display_name):
+            raise ValueError("昵称不能包含换行或控制字符")
+        result = self.api.update_profile(display_name)
+        user = result.get("user", {}) if isinstance(result, dict) else {}
+        updated = str(user.get("display_name") or display_name)
+        self.config.display_name = updated
+        self.config.save()
+        self.profile_changed.emit(user)
         return result
 
     def _start_session(

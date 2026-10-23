@@ -25,6 +25,7 @@ from ..widgets.common import icon_button, make_button
 
 class AccountPanel(QWidget):
     avatar_requested = pyqtSignal()
+    nickname_requested = pyqtSignal()
     password_requested = pyqtSignal()
 
     CARD_WIDTH = 430
@@ -221,6 +222,10 @@ class AccountPanel(QWidget):
         layout.addWidget(
             make_button("更换头像", icon=FIF.CAMERA, on_click=lambda: self.avatar_requested.emit())
         )
+        self.nickname_button = make_button(
+            "修改昵称", icon=FIF.EDIT, on_click=lambda: self.nickname_requested.emit()
+        )
+        layout.addWidget(self.nickname_button)
         layout.addWidget(
             make_button(
                 "修改密码", icon=FIF.FINGERPRINT, on_click=lambda: self.password_requested.emit()
@@ -251,7 +256,9 @@ class AccountPanel(QWidget):
             self.profile_name.setText(display)
             self.profile_user.setText(f"@{self.ctx.config.username}")
             self.profile_avatar.setText(display[:2])
+            self.nickname_button.setVisible(self.ctx.can_update_nickname)
         else:
+            self.nickname_button.setVisible(False)
             self.remember_check.setChecked(bool(self.ctx.config.remember_me))
 
     def _sync_background(self, *_args) -> None:
