@@ -14,11 +14,11 @@ NexHub 面向个人和可信好友小范围使用：在本机一键发布文件/
 
 | 文件 | 说明 |
 | --- | --- |
-| [`NexHub-v0.1.0-beta.exe`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.0-beta/NexHub-v0.1.0-beta.exe) | Windows 10 / 11 x64 客户端 |
-| [`NexHub-Server-Deploy.zip`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.0-beta/NexHub-Server-Deploy.zip) | 服务端一键部署包（含安装脚本） |
-| [`NexHub-Server-Bundle.zip`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.0-beta/NexHub-Server-Bundle.zip) | 仅服务端程序包，适合手动升级 |
+| [`NexHub-v0.1.1.exe`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.1/NexHub-v0.1.1.exe) | Windows 10 / 11 x64 客户端 |
+| [`NexHub-Server-Deploy.zip`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.1/NexHub-Server-Deploy.zip) | 服务端一键部署包（含安装脚本） |
+| [`NexHub-Server-Bundle.zip`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.1/NexHub-Server-Bundle.zip) | 仅服务端程序包，适合手动升级 |
 
-> GitHub Release 的客户端资产只保留一个 `NexHub-v0.1.0-beta.exe`，不再同时上传 `NexHub.exe` 与版本化副本。完整发布页见 [Releases](https://github.com/mouchenguo/NexHub/releases)。
+> GitHub Release 的客户端资产只保留一个 `NexHub-v0.1.1.exe`，不再同时上传 `NexHub.exe` 与版本化副本。完整发布页见 [Releases](https://github.com/mouchenguo/NexHub/releases)。
 
 ## 界面预览
 
@@ -59,7 +59,7 @@ NexHub 面向个人和可信好友小范围使用：在本机一键发布文件/
 - **账号系统**：主界面左下角显示「请登录」，点击后打开居中的内嵌登录面板；支持登录 / 注册切换、记住我（DPAPI 加密凭证）、自动登录、修改密码、退出登录；注册默认由服务端自动审核通过，也可切换为人工审核；服务器地址在设置页配置，**不硬编码 ECS IP**。
 - **单实例运行**：重复启动不会创建新窗口，而是通过本地 IPC 唤起已有实例（包括已关闭窗口并隐藏到托盘的情况）。
 - **窗口行为**：最小化保留在任务栏；点击关闭按钮才隐藏到托盘；托盘菜单仅保留「显示 NexHub / 退出 NexHub」。
-- **检查更新与下载页**：设置 → 关于与本地数据 → 检查更新，读取 `服务器地址/downloads/latest.json`；介绍页与安装包位于 `服务器地址/downloads/`。当前版本 `v0.1.0-beta`。
+- **检查更新与下载页**：设置 → 关于与本地数据 → 检查更新，读取 `服务器地址/downloads/latest.json`；介绍页与安装包位于 `服务器地址/downloads/`。当前版本 `v0.1.1`。
 - **仪表盘**：活跃共享、RDP 主机数量、OSS 已用容量、服务状态、最近动态。
 - **一键共享**：
   - 自动扫描文件/文件夹并统计大小；
@@ -493,7 +493,7 @@ python server\tests\preview_admin.py
 - 临时共享依赖客户端内嵌服务 + nps 隧道；客户端退出后自动失效。
 - OSS 自动清理是全局策略，会删除最早创建的活跃 OSS 共享；客户端发布页和管理后台均有提示。
 - 管理后台为管理员单一角色，未实现细粒度 RBAC、2FA、分页；适合个人/小型可信团队。
-- 客户端可直接下载 Release 中的 `NexHub-v0.1.0-beta.exe`（onefile），也可使用 `client/build_client.bat` 自行打包。
+- 客户端可直接下载 Release 中的 `NexHub-v0.1.1.exe`（onefile），也可使用 `client/build_client.bat` 自行打包。
 - RDP 依赖 Windows 自带 `mstsc.exe`；macOS/Linux 不支持该模块。
 - 客户端离线体验使用 `%APPDATA%\NexHub\demo` 下的真实示例文件，仅用于演示交互。
 

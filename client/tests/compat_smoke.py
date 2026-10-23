@@ -98,7 +98,7 @@ check(not unknown.checked and unknown.supports(FEATURE_AUTO_TUNNEL), "未检查�
 
 client = ApiClient(AppConfig())
 check(
-    client.session.headers.get("X-NexHub-Client-Version") == "0.1.0-beta"
+    client.session.headers.get("X-NexHub-Client-Version") == "0.1.1"
     and client.session.headers.get("X-NexHub-Client-Api-Version") == "1",
     "客户端请求携带版本头",
 )

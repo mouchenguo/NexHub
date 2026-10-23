@@ -1,19 +1,20 @@
 {
-  "version": "0.1.0-beta",
-  "download_url": "NexHub-v0.1.0-beta.exe",
+  "version": "0.1.1",
+  "download_url": "NexHub-v0.1.1.exe",
   "page_url": "./",
   "server_download_url": "NexHub-Server-Deploy.zip",
   "server_bundle_url": "NexHub-Server-Bundle.zip",
   "published_at": "2026-10-23",
   "notes": [
-    "新增客户端/服务端兼容握手：协议版本、最低客户端版本与能力声明",
+    "客户端/服务端兼容握手：API 版本、最低客户端版本与能力声明",
+    "客户端上报版本；旧服务端自动进入 legacy 兼容模式，过低客户端返回 426",
     "服务端管理后台新增检查更新：读取 GitHub Releases，显示版本、部署包与 SHA-256",
-    "新增 NPC 一键自动配置：服务器自动创建/修复 NPS 主机与 TCP 隧道",
+    "NPC 一键自动配置：服务器自动创建/修复 NPS 主机与 TCP 隧道",
     "客户端自动安装 NPC、写入 npc.conf、重启服务并显示公网 RDP 地址",
     "NPS 客户端或隧道丢失时自动重建，已有 vkey 可幂等复用",
     "保留注册自动审核、管理后台审核和现有账号密码",
-    "Release 客户端资产只保留一个 NexHub-v0.1.0-beta.exe"
+    "Release 客户端资产只保留一个 NexHub-v0.1.1.exe"
   ],
-  "sha256": "59071F75C18AFC92A1F669FBFFE918E5F56A2FDDEAC59842D748EFE9076EDD36",
-  "server_sha256": "A37479E5E4CA6F3E25A1818F232ED660C5BC5E9BDD0404CA50E0FA6B34890AF7"
+  "sha256": "4A821E08EB25EA0E570F84C5AB96A65387E99D73F9A48F07C206C4B67537E680",
+  "server_sha256": "BA7AFDC3B8BDC4DD81C6EED8D07730E3E54F78D76C13D9DC1CE18AF8681F7924"
 }

@@ -80,7 +80,7 @@ def main() -> int:
         versioned_login = client.post(
             "/api/auth/login",
             json={"username": "demo", "password": "demo1234"},
-            headers={"X-NexHub-Client-Version": "0.1.0-beta"},
+            headers={"X-NexHub-Client-Version": "0.1.1"},
         )
         check(versioned_login.status_code == 200, "当前版本客户端可正常登录")
 

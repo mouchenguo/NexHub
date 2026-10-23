@@ -1,10 +1,8 @@
 name: Build Windows Release
 
 on:
+  # 发布由本地脚本打包、校验哈希后手工上传，避免 tag 推送自动覆盖 Release 资产。
   workflow_dispatch:
-  push:
-    tags:
-      - "v*"
 
 permissions:
   contents: write
