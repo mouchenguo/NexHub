@@ -32,7 +32,8 @@ class PluginProcessManager(QObject):
             if self.is_running(plugin_id)
         }
 
-    def start(self, record) -> None:
+    def start(self, record, hidden: bool = True) -> None:
+        """启动插件宿主；默认后台运行，不自动显示插件窗口。"""
         plugin_id = record.plugin_id
         if self.is_running(plugin_id):
             return
@@ -53,6 +54,8 @@ class PluginProcessManager(QObject):
                 self.ctx.theme.effective_theme,
             ]
         )
+        if hidden:
+            args.append("--hidden")
         process.setArguments(args)
         process.setWorkingDirectory(str(record.folder))
         process.setStandardOutputFile(
@@ -72,8 +75,16 @@ class PluginProcessManager(QObject):
             self._processes.pop(plugin_id, None)
             process.deleteLater()
             raise RuntimeError(f"插件「{record.name}」启动失败，详见 {log_path}")
-        logger.info("started plugin %s pid=%s", plugin_id, process.processId())
+        logger.info("started plugin %s pid=%s hidden=%s", plugin_id, process.processId(), hidden)
         self.changed.emit()
+
+    def show(self, plugin_id: str) -> None:
+        """请求已在后台运行的插件显示自己的配置窗口。"""
+        process = self._processes.get(plugin_id)
+        if process is None or process.state() == QProcess.ProcessState.NotRunning:
+            raise RuntimeError("插件尚未启动")
+        process.write(b"show\n")
+        process.waitForBytesWritten(500)
 
     def _on_finished(self, plugin_id: str, exit_code: int) -> None:
         process = self._processes.pop(plugin_id, None)

@@ -88,5 +88,10 @@ class PluginManagerDialog(QDialog):
         for plugin_id in all_ids - enabled_ids:
             self.ctx.plugin_processes.stop(plugin_id)
         self.ctx.config.disabled_plugins = sorted(all_ids - enabled_ids)
+        self.ctx.config.active_plugins = [
+            plugin_id
+            for plugin_id in self.ctx.config.active_plugins
+            if plugin_id in enabled_ids
+        ]
         self.ctx.config.save()
         self.accept()

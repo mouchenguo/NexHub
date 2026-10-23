@@ -21,6 +21,7 @@ ACCENT_COLOR = "#4f8cff"
 
 class _HostBridge(QObject):
     theme_received = pyqtSignal(str)
+    show_received = pyqtSignal()
     shutdown_received = pyqtSignal()
 
 
@@ -48,8 +49,8 @@ def _load_plugin_module(plugin_dir: Path):
     return factory
 
 
-def run_plugin_host(plugin_dir: Path, theme: str = "dark") -> int:
-    """运行单个插件；退出码由插件窗口生命周期决定。"""
+def run_plugin_host(plugin_dir: Path, theme: str = "dark", hidden: bool = False) -> int:
+    """运行单个插件；hidden=True 时只在后台运行，等待 show 指令。"""
     plugin_dir = Path(plugin_dir).resolve()
     manifest_path = plugin_dir / "manifest.json"
     try:
@@ -68,6 +69,8 @@ def run_plugin_host(plugin_dir: Path, theme: str = "dark") -> int:
     app = QApplication([])
     app.setApplicationName(f"{APP_NAME} · {name}")
     app.setOrganizationName("NexHub")
+    # 关闭配置窗口只隐藏插件 UI，不结束后台插件进程。
+    app.setQuitOnLastWindowClosed(False)
     app.setFont(QFont("Microsoft YaHei UI", 9))
     setTheme(Theme.DARK if theme != "light" else Theme.LIGHT, save=False)
     setThemeColor(ACCENT_COLOR, save=False)
@@ -104,11 +107,19 @@ def run_plugin_host(plugin_dir: Path, theme: str = "dark") -> int:
             except Exception:  # noqa: BLE001
                 context.logger.exception("插件主题切换失败")
 
+    def show_window() -> None:
+        if window.isMinimized():
+            window.showNormal()
+        window.show()
+        window.raise_()
+        window.activateWindow()
+
     def request_shutdown() -> None:
         context.cleanup()
         app.quit()
 
     bridge.theme_received.connect(apply_theme)
+    bridge.show_received.connect(show_window)
     bridge.shutdown_received.connect(request_shutdown)
     app.aboutToQuit.connect(context.cleanup)
 
@@ -119,12 +130,18 @@ def run_plugin_host(plugin_dir: Path, theme: str = "dark") -> int:
                 if command == "shutdown":
                     bridge.shutdown_received.emit()
                     return
+                if command == "show":
+                    bridge.show_received.emit()
+                    continue
                 if command.startswith("theme:"):
                     bridge.theme_received.emit(command.split(":", 1)[1].strip())
         except Exception:  # noqa: BLE001
             context.logger.exception("插件宿主 stdin 读取失败")
 
     threading.Thread(target=watch_stdin, daemon=True).start()
-    window.show()
+    if hidden:
+        context.logger.info("插件已在后台启动，等待 show 指令")
+    else:
+        window.show()
     QTimer.singleShot(0, lambda: context.logger.info("插件进程已启动"))
     return app.exec()

@@ -77,10 +77,11 @@ def _run_plugin_host_helper() -> int | None:
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--plugin-host", required=True)
     parser.add_argument("--theme", default="dark")
+    parser.add_argument("--hidden", action="store_true")
     args, _ = parser.parse_known_args()
     from nexhub.plugin_host import run_plugin_host
 
-    return run_plugin_host(Path(args.plugin_host), args.theme)
+    return run_plugin_host(Path(args.plugin_host), args.theme, hidden=args.hidden)
 
 
 def _run_npc_admin_helper() -> int | None:

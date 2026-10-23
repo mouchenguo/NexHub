@@ -114,6 +114,7 @@ class MainWindow(FluentWindow):
         self.ctx.connection_changed.connect(self._on_connection_changed)
         self.ctx.profile_changed.connect(self._on_profile_changed)
         self._setup_tray()
+        QTimer.singleShot(450, self._restore_active_plugins)
         QTimer.singleShot(1600, self._check_updates_on_startup)
         if self.ctx.server_compat.warning:
             QTimer.singleShot(
@@ -145,6 +146,17 @@ class MainWindow(FluentWindow):
         nav.setReturnButtonVisible(False)
         nav.setMenuButtonVisible(True)
         nav.addItemHeader("工作空间")
+
+    def _restore_active_plugins(self) -> None:
+        """恢复上次通过开关启用的插件；只在后台启动，不弹出配置窗口。"""
+        active = set(self.ctx.config.active_plugins)
+        for record in self.ctx.plugins.all():
+            if record.plugin_id not in active:
+                continue
+            try:
+                self.ctx.plugin_processes.start(record, hidden=True)
+            except Exception as exc:  # noqa: BLE001
+                self.ctx.notify(f"插件「{record.name}」后台恢复失败：{exc}", "warning")
 
     def _apply_initial_geometry(self) -> None:
         """按屏幕可用区域决定初始尺寸；必须在页面添加完成后调用。"""

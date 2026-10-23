@@ -7,18 +7,18 @@ NexHub 面向个人和可信好友小范围使用：在本机一键发布文件/
 **Fluent Design · 默认深色主题 · FluentWindow 可折叠侧边栏 · 圆角卡片 · 深浅主题一键切换 · OSS 密钥只存在 ECS 后端**
 
 [![GitHub Release](https://img.shields.io/github/v/release/mouchenguo/NexHub?include_prereleases&label=release)](https://github.com/mouchenguo/NexHub/releases)
-[![Platform](https://img.shields.io/badge/platform-Windows%2010%20%2F%2011-0078D4)](https://github.com/mouchenguo/NexHub/releases/tag/v0.1.3-beta)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%20%2F%2011-0078D4)](https://github.com/mouchenguo/NexHub/releases/tag/v0.1.4-beta)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB)](https://www.python.org/)
 
 ## 下载
 
 | 文件 | 说明 |
 | --- | --- |
-| [`NexHub-v0.1.3-beta.exe`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.3-beta/NexHub-v0.1.3-beta.exe) | Windows 10 / 11 x64 客户端（预发行） |
-| [`NexHub-Server-Deploy.zip`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.3-beta/NexHub-Server-Deploy.zip) | 服务端一键部署包（含安装脚本） |
-| [`NexHub-Server-Bundle.zip`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.3-beta/NexHub-Server-Bundle.zip) | 仅服务端程序包，适合手动升级 |
+| [`NexHub-v0.1.4-beta.exe`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.4-beta/NexHub-v0.1.4-beta.exe) | Windows 10 / 11 x64 客户端（预发行） |
+| [`NexHub-Server-Deploy.zip`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.4-beta/NexHub-Server-Deploy.zip) | 服务端一键部署包（含安装脚本） |
+| [`NexHub-Server-Bundle.zip`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.4-beta/NexHub-Server-Bundle.zip) | 仅服务端程序包，适合手动升级 |
 
-> GitHub Release 的客户端资产只保留一个 `NexHub-v0.1.3-beta.exe`，不再同时上传 `NexHub.exe` 与版本化副本。完整发布页见 [Releases](https://github.com/mouchenguo/NexHub/releases)。
+> GitHub Release 的客户端资产只保留一个 `NexHub-v0.1.4-beta.exe`，不再同时上传 `NexHub.exe` 与版本化副本。完整发布页见 [Releases](https://github.com/mouchenguo/NexHub/releases)。
 
 ## 网页入口
 
@@ -37,7 +37,7 @@ NexHub 面向个人和可信好友小范围使用：在本机一键发布文件/
 
 ## 版本策略
 
-- `v1.0.0` 之前所有版本都是预发行版，版本号统一带 `-beta` 后缀，例如 `v0.1.3-beta`。
+- `v1.0.0` 之前所有版本都是预发行版，版本号统一带 `-beta` 后缀，例如 `v0.1.4-beta`。
 - GitHub Release 在 `v1.0.0` 之前都标记为 **Pre-release**，不作为稳定发行版。
 - `v1.0.0` 才是第一个正式发行版；达到该版本后再按正常稳定版策略发布。
 - 发布 tag 与版本号保持一致，下载文件名使用 `NexHub-v<版本>.exe`。
@@ -81,7 +81,7 @@ NexHub 面向个人和可信好友小范围使用：在本机一键发布文件/
 - **账号系统**：主界面左下角显示「请登录」，点击后打开居中的内嵌登录面板；支持登录 / 注册切换、用户名或昵称登录（UTF-8 + Unicode NFC 统一处理）、记住我（DPAPI 加密凭证）、自动登录、修改昵称、修改密码、退出登录；注册默认由服务端自动审核通过，也可切换为人工审核；服务器地址在设置页配置，**不硬编码 ECS IP**。
 - **单实例运行**：重复启动不会创建新窗口，而是通过本地 IPC 唤起已有实例（包括已关闭窗口并隐藏到托盘的情况）。
 - **窗口行为**：最小化保留在任务栏；点击关闭按钮才隐藏到托盘；托盘菜单仅保留「显示 NexHub / 退出 NexHub」。
-- **检查更新与下载页**：设置 → 关于与本地数据 → 检查更新，读取 `服务器地址/downloads/latest.json`；启动后登录状态会自动检查一次，发现新版本时询问是否自动下载、替换并重启。当前版本 `v0.1.3-beta`。
+- **检查更新与下载页**：设置 → 关于与本地数据 → 检查更新，读取 `服务器地址/downloads/latest.json`；启动后登录状态会自动检查一次，发现新版本时询问是否自动下载、替换并重启。当前版本 `v0.1.4-beta`。
 - **仪表盘**：活跃共享、RDP 主机数量、OSS 已用容量、服务状态、最近动态。
 - **一键共享**：
   - 自动扫描文件/文件夹并统计大小；
@@ -516,7 +516,7 @@ python server\tests\preview_admin.py
 - 临时共享依赖客户端内嵌服务 + nps 隧道；客户端退出后自动失效。
 - OSS 自动清理是全局策略，会删除最早创建的活跃 OSS 共享；客户端发布页和管理后台均有提示。
 - 管理后台为管理员单一角色，未实现细粒度 RBAC、2FA、分页；适合个人/小型可信团队。
-- 客户端可直接下载 Release 中的 `NexHub-v0.1.3-beta.exe`（onefile），也可使用 `client/build_client.bat` 自行打包。
+- 客户端可直接下载 Release 中的 `NexHub-v0.1.4-beta.exe`（onefile），也可使用 `client/build_client.bat` 自行打包。
 - RDP 依赖 Windows 自带 `mstsc.exe`；macOS/Linux 不支持该模块。
 - 客户端离线体验使用 `%APPDATA%\NexHub\demo` 下的真实示例文件，仅用于演示交互。
 
@@ -548,7 +548,7 @@ python plugin_server/server.py --host 0.0.0.0 --port 8001
 
 插件广场网页版提供上传表单，上传会进入 `dist/pending` 审核队列；`GET/POST /nexhub/plugin/review` 是独立审核后台（站内登录页 + HttpOnly 会话 Cookie，默认账号 `admin`，密码在服务端 `review_password.txt`）。审核通过后才会写入公开 `index.json`，并移动到 `dist/downloads`。插件服务单独运行在 8001 端口，主站开源代码不包含审核密码。
 
-插件进程由主程序的 `PluginProcessManager` 启动和回收；主题变化通过进程 stdin 同步。域名定向加速插件不会修改系统代理，也不会启用 TUN，只监听 `127.0.0.1:7890`，并将白名单外的域名设为 `DIRECT`。
+插件进程由主程序的 `PluginProcessManager` 启动和回收；主题变化通过进程 stdin 同步。工具箱已安装插件卡片使用“启用”开关控制后台宿主：启用后进程在后台运行，不会自动弹出插件窗口；点击“配置”才显示插件窗口，关闭窗口只隐藏、不结束进程，关闭开关才停止宿主。启用状态保存在 `active_plugins`，下次启动会在后台恢复。域名定向加速插件不会修改系统代理，也不会启用 TUN，只监听 `127.0.0.1:7890`，并将白名单外的域名设为 `DIRECT`。
 
 ## 默认账号与首次运行提醒
 

@@ -24,6 +24,7 @@ from qfluentwidgets import (
     LineEdit,
     SegmentedWidget,
     StrongBodyLabel,
+    SwitchButton,
 )
 
 from ..paths import user_plugins_dir
@@ -171,7 +172,8 @@ class ToolboxPage(BasePage):
             return
         clear_layout(self.installed_layout)
         records = self.ctx.plugins.all()
-        self.plugin_count.setText(f"{len(records)} 个已启用")
+        running_ids = self.ctx.plugin_processes.running_ids()
+        self.plugin_count.setText(f"{len(running_ids)} 个运行中 · {len(records)} 个已安装")
         if not records:
             card, layout = make_card(20, 12)
             layout.addWidget(StrongBodyLabel("还没有已安装插件"))
@@ -215,16 +217,22 @@ class ToolboxPage(BasePage):
         top.addLayout(info, 1)
         actions = QHBoxLayout()
         actions.setSpacing(8)
-        open_button = make_button(
-            "打开", primary=True, icon=FIF.PLAY, on_click=lambda: self._open_plugin(record)
+        switch_label = CaptionLabel("启用")
+        actions.addWidget(switch_label)
+        switch = SwitchButton()
+        switch.setChecked(running)
+        switch.checkedChanged.connect(
+            lambda checked, current=record: self._toggle_plugin(current, checked)
         )
-        open_button.setEnabled(not running)
-        actions.addWidget(open_button)
-        stop_button = make_button(
-            "停止", transparent=True, icon=FIF.PAUSE, on_click=lambda: self._stop_plugin(record)
+        actions.addWidget(switch)
+        actions.addWidget(
+            make_button(
+                "配置",
+                primary=running,
+                icon=FIF.SETTING,
+                on_click=lambda: self._show_plugin(record),
+            )
         )
-        stop_button.setEnabled(running)
-        actions.addWidget(stop_button)
         actions.addWidget(
             make_button(
                 "卸载",
@@ -237,17 +245,40 @@ class ToolboxPage(BasePage):
         layout.addLayout(top)
         return card
 
-    def _open_plugin(self, record: PluginRecord) -> None:
-        try:
-            self.ctx.plugin_processes.start(record)
-        except Exception as exc:  # noqa: BLE001
-            self.ctx.notify(f"插件启动失败：{exc}", "error")
-            return
-        self.ctx.notify(f"插件「{record.name}」已在独立进程启动", "success")
+    def _set_active(self, record: PluginRecord, active: bool) -> None:
+        ids = set(self.ctx.config.active_plugins)
+        if active:
+            ids.add(record.plugin_id)
+        else:
+            ids.discard(record.plugin_id)
+        self.ctx.config.active_plugins = sorted(ids)
+        self.ctx.config.save()
 
-    def _stop_plugin(self, record: PluginRecord) -> None:
-        self.ctx.plugin_processes.stop(record.plugin_id)
-        self.ctx.notify(f"插件「{record.name}」已停止", "info")
+    def _toggle_plugin(self, record: PluginRecord, enabled: bool) -> None:
+        if enabled:
+            try:
+                self.ctx.plugin_processes.start(record, hidden=True)
+            except Exception as exc:  # noqa: BLE001
+                self.ctx.notify(f"插件启用失败：{exc}", "error")
+                self._render_installed()
+                return
+            self._set_active(record, True)
+            self.ctx.notify(f"插件「{record.name}」已在后台启用，点击配置打开窗口", "success")
+        else:
+            self.ctx.plugin_processes.stop(record.plugin_id)
+            self._set_active(record, False)
+            self.ctx.notify(f"插件「{record.name}」已停用", "info")
+
+    def _show_plugin(self, record: PluginRecord) -> None:
+        try:
+            if not self.ctx.plugin_processes.is_running(record.plugin_id):
+                self.ctx.plugin_processes.start(record, hidden=True)
+                self._set_active(record, True)
+            self.ctx.plugin_processes.show(record.plugin_id)
+        except Exception as exc:  # noqa: BLE001
+            self.ctx.notify(f"插件配置窗口打开失败：{exc}", "error")
+            return
+        self.ctx.notify(f"插件「{record.name}」配置窗口已打开", "info")
 
     def _uninstall_plugin(self, record: PluginRecord) -> None:
         if not ask_confirm(self, "卸载插件", f"确定删除插件「{record.name}」及其数据目录吗？"):
@@ -257,7 +288,10 @@ class ToolboxPage(BasePage):
             uninstall_plugin(record.plugin_id)
             if record.plugin_id in self.ctx.config.disabled_plugins:
                 self.ctx.config.disabled_plugins.remove(record.plugin_id)
-                self.ctx.config.save()
+            self.ctx.config.active_plugins = [
+                item for item in self.ctx.config.active_plugins if item != record.plugin_id
+            ]
+            self.ctx.config.save()
             self.ctx.plugins.reload_custom()
         except Exception as exc:  # noqa: BLE001
             self.ctx.notify(f"卸载失败：{exc}", "error")

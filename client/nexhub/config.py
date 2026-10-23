@@ -127,6 +127,8 @@ class AppConfig:
     plugin_market_url: str = "http://47.108.130.177:8001/nexhub/plugin"
     # 不加载到工具箱的插件 ID
     disabled_plugins: list[str] = field(default_factory=list)
+    # 用户通过开关启用的插件；下次启动时在后台恢复运行（不自动弹窗）
+    active_plugins: list[str] = field(default_factory=list)
 
     # ------------------------------------------------------------------
     @classmethod
@@ -170,6 +172,11 @@ class AppConfig:
             disabled_plugins=[
                 str(item)
                 for item in raw.get("disabled_plugins", [])
+                if isinstance(item, str)
+            ],
+            active_plugins=[
+                str(item)
+                for item in raw.get("active_plugins", [])
                 if isinstance(item, str)
             ],
         )
