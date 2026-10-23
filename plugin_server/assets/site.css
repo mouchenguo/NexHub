@@ -207,5 +207,14 @@ main { padding: 0 0 68px; }
 .empty-state { padding:18px; border:1px dashed var(--line-strong); border-radius:10px; color:var(--muted); font-size:12px; }
 .plugin-search { width:260px; max-width:45vw; border:1px solid var(--line); border-radius:8px; background:rgba(255,255,255,.04); color:var(--text); padding:9px 11px; font:inherit; font-size:12px; outline:none; }
 .plugin-search:focus { border-color:rgba(91,140,255,.55); box-shadow:0 0 0 3px rgba(91,140,255,.1); }
+.login-shell { max-width:560px; }
+.login-card { margin-top:22px; }
+.login-form { display:grid; gap:13px; margin-top:14px; }
+.login-form label { display:grid; gap:6px; color:#b8c7dd; font-size:11px; }
+.login-form input { width:100%; border:1px solid var(--line); border-radius:8px; background:rgba(255,255,255,.04); color:var(--text); padding:11px 12px; font:inherit; font-size:13px; outline:none; }
+.login-form input:focus { border-color:rgba(91,140,255,.55); box-shadow:0 0 0 3px rgba(91,140,255,.1); }
+.login-form .btn { justify-content:center; margin-top:3px; }
+.login-note { margin:15px 0 0; color:#71829d; font-size:11px; }
+.review-logout { color:#8da4c5; font-size:11px; }
 @media (max-width:680px){ .market-grid { grid-template-columns:1fr; } .plugin-search { width:100%; max-width:none; } }
 

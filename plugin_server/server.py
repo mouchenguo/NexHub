@@ -10,13 +10,17 @@ from __future__ import annotations
 
 import argparse
 import base64
+import hashlib
+import hmac
 import html
 import json
 import logging
 import mimetypes
 import os
 import re
+import time
 import urllib.parse
+from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -33,6 +37,8 @@ LOGGER = logging.getLogger("nexhub.plugin_server")
 MAIN_SITE = os.environ.get("NEXHUB_MAIN_SITE", "http://47.108.130.177:8000/nexhub").rstrip("/")
 GITHUB_URL = os.environ.get("NEXHUB_GITHUB_URL", "https://github.com/mouchenguo/NexHub").rstrip("/")
 MAX_BODY_BYTES = MAX_ARCHIVE_BYTES + 1024 * 1024
+REVIEW_COOKIE = "nexhub_plugin_review"
+REVIEW_TTL = 12 * 60 * 60
 
 
 def _human_size(value: int) -> str:
@@ -150,10 +156,17 @@ class PluginHandler(BaseHTTPRequestHandler):
         payload = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
         self._send_bytes(payload, "application/json; charset=utf-8", status)
 
-    def _redirect(self, location: str, status: int = 303) -> None:
+    def _redirect(
+        self,
+        location: str,
+        status: int = 303,
+        headers: dict[str, str] | None = None,
+    ) -> None:
         self.send_response(status)
         self.send_header("Location", location)
         self.send_header("Content-Length", "0")
+        for key, value in (headers or {}).items():
+            self.send_header(key, value)
         self.end_headers()
 
     def _send_file(self, path: Path, content_type: str, support_range: bool = False) -> None:
@@ -210,28 +223,51 @@ class PluginHandler(BaseHTTPRequestHandler):
             return True
         return "application/json" in accept or not accept
 
-    def _auth_review(self) -> str | None:
-        header = self.headers.get("Authorization", "")
-        if not header.startswith("Basic "):
-            self._send_html(
-                "<h1>需要审核凭据</h1><p>插件审核后台使用 HTTP Basic Auth。</p>".encode("utf-8"),
-                401,
-                extra_headers={"WWW-Authenticate": 'Basic realm="NexHub Plugin Review", charset="UTF-8"'},
-            )
-            return None
+    def _review_token(self, user: str) -> str:
+        _, password = self.market.review_credentials()
+        payload = f"{user}:{int(time.time())}"
+        signature = hmac.new(password.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+        return base64.urlsafe_b64encode(f"{payload}:{signature}".encode("utf-8")).decode("ascii").rstrip("=")
+
+    def _review_user(self) -> str:
+        """读取站内会话 Cookie；不再触发浏览器原生 Basic 弹窗。"""
+        raw_cookie = self.headers.get("Cookie", "")
+        cookie = SimpleCookie()
         try:
-            decoded = base64.b64decode(header[6:].strip()).decode("utf-8")
-            user, _, password = decoded.partition(":")
+            cookie.load(raw_cookie)
+        except Exception:
+            return ""
+        morsel = cookie.get(REVIEW_COOKIE)
+        if morsel is None:
+            return ""
+        value = morsel.value
+        try:
+            decoded = base64.urlsafe_b64decode(value + "=" * (-len(value) % 4)).decode("utf-8")
+            payload, signature = decoded.rsplit(":", 1)
+            user, issued_text = payload.rsplit(":", 1)
+            issued = int(issued_text)
         except (ValueError, UnicodeDecodeError):
-            user, password = "", ""
-        if not self.market.check_review_auth(user, password):
-            self._send_html(
-                "<h1>凭据错误</h1><p>请检查插件审核账号和密码。</p>".encode("utf-8"),
-                401,
-                extra_headers={"WWW-Authenticate": 'Basic realm="NexHub Plugin Review", charset="UTF-8"'},
-            )
-            return None
-        return user or "admin"
+            return ""
+        if abs(time.time() - issued) > REVIEW_TTL:
+            return ""
+        expected_user, password = self.market.review_credentials()
+        if not hmac.compare_digest(user, expected_user):
+            return ""
+        expected = hmac.new(
+            password.encode("utf-8"),
+            f"{user}:{issued_text}".encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+        return expected_user if hmac.compare_digest(signature, expected) else ""
+
+    def _review_login_page(self, error: str = "") -> None:
+        flash = f'<div class="flash error">{html.escape(error)}</div>' if error else ""
+        page = _render(
+            "review_login.html",
+            ERROR=flash,
+            PENDING_COUNT=len(self.market.pending()),
+        )
+        self._send_html(page, no_store=True)
 
     def _intro_page(self) -> None:
         plugins = self.market.plugins()
@@ -355,11 +391,21 @@ class PluginHandler(BaseHTTPRequestHandler):
             self._send_json({"plugins": self.market.plugins(), "stats": self.market.stats()})
             return
         if path in ("/nexhub/plugin/review", "/nexhub/plugin/review/"):
-            reviewer = self._auth_review()
-            if reviewer is not None:
-                message = (query.get("msg") or [""])[0]
-                message_type = (query.get("type") or ["ok"])[0]
-                self._review_page(reviewer, message, message_type if message_type in ("ok", "error") else "ok")
+            reviewer = self._review_user()
+            if not reviewer:
+                self._review_login_page()
+                return
+            message = (query.get("msg") or [""])[0]
+            message_type = (query.get("type") or ["ok"])[0]
+            self._review_page(reviewer, message, message_type if message_type in ("ok", "error") else "ok")
+            return
+        if path in ("/nexhub/plugin/review/logout", "/nexhub/plugin/review/logout/"):
+            self._redirect(
+                "/nexhub/plugin/review",
+                headers={
+                    "Set-Cookie": f"{REVIEW_COOKIE}=; Path=/nexhub/plugin; Max-Age=0; HttpOnly; SameSite=Lax"
+                },
+            )
             return
         if path.startswith("/nexhub/plugin/downloads/"):
             name = _safe_name(path.rsplit("/", 1)[-1])
@@ -455,9 +501,31 @@ class PluginHandler(BaseHTTPRequestHandler):
                 )
                 self._redirect(location)
             return
+        if path in ("/nexhub/plugin/review/login", "/nexhub/plugin/review/login/"):
+            try:
+                form = urllib.parse.parse_qs(body.decode("utf-8", "replace"), keep_blank_values=True)
+                username = (form.get("username") or [""])[0]
+                password = (form.get("password") or [""])[0]
+                if not self.market.check_review_auth(username, password):
+                    self._review_login_page("用户名或密码错误")
+                    return
+                token = self._review_token(username)
+                self._redirect(
+                    "/nexhub/plugin/review",
+                    headers={
+                        "Set-Cookie": (
+                            f"{REVIEW_COOKIE}={token}; Path=/nexhub/plugin; "
+                            f"Max-Age={REVIEW_TTL}; HttpOnly; SameSite=Lax"
+                        )
+                    },
+                )
+            except (MarketError, OSError) as exc:
+                self._review_login_page(str(exc))
+            return
         if path in ("/nexhub/plugin/review", "/nexhub/plugin/review/"):
-            reviewer = self._auth_review()
-            if reviewer is None:
+            reviewer = self._review_user()
+            if not reviewer:
+                self._review_login_page("会话已过期，请重新登录")
                 return
             try:
                 form = urllib.parse.parse_qs(body.decode("utf-8", "replace"), keep_blank_values=True)

@@ -30,7 +30,7 @@ NexHub 面向个人和可信好友小范围使用：在本机一键发布文件/
 | 客户端下载 | `http://47.108.130.177:8000/nexhub/downloads` | 只展示客户端、服务端部署包和校验信息 |
 | 插件广场介绍 | `http://47.108.130.177:8001/nexhub` | 独立插件系统的介绍页 |
 | 插件广场 | `http://47.108.130.177:8001/nexhub/plugin` | 浏览、下载、上传插件 |
-| 插件审核 | `http://47.108.130.177:8001/nexhub/plugin/review` | HTTP Basic Auth；密码文件为服务端 `/opt/nexhub/plugin-market/review_password.txt` |
+| 插件审核 | `http://47.108.130.177:8001/nexhub/plugin/review` | 站内登录页 + 会话 Cookie；密码文件为服务端 `/opt/nexhub/plugin-market/review_password.txt` |
 | 管理后台 | `http://47.108.130.177:8000/admin` | 主站右上角和页脚只保留小入口 |
 
 旧的 `/downloads/latest.json` 仍保留兼容路由，已经安装的客户端检查更新不会失效；新的下载页使用 `/nexhub/downloads`。
@@ -546,7 +546,7 @@ python plugin_server/server.py --host 0.0.0.0 --port 8001
 
 清单接口：`GET /nexhub/plugin` 返回 `{"plugins": [...]}`（浏览器使用 `text/html` 时返回网页版广场；客户端发送 `Accept: application/json` 时返回 JSON）；每项至少包含 `id/name/version/description/requirements/download_url`，可附带 `sha256/size/category/icon_url`。插件包下载接口为 `GET /nexhub/plugin/downloads/<name>.zip`，支持 HTTP Range 断点续传。
 
-插件广场网页版提供上传表单，上传会进入 `dist/pending` 审核队列；`GET/POST /nexhub/plugin/review` 是独立审核后台（HTTP Basic Auth，默认账号 `admin`，密码在服务端 `review_password.txt`）。审核通过后才会写入公开 `index.json`，并移动到 `dist/downloads`。插件服务单独运行在 8001 端口，主站开源代码不包含审核密码。
+插件广场网页版提供上传表单，上传会进入 `dist/pending` 审核队列；`GET/POST /nexhub/plugin/review` 是独立审核后台（站内登录页 + HttpOnly 会话 Cookie，默认账号 `admin`，密码在服务端 `review_password.txt`）。审核通过后才会写入公开 `index.json`，并移动到 `dist/downloads`。插件服务单独运行在 8001 端口，主站开源代码不包含审核密码。
 
 插件进程由主程序的 `PluginProcessManager` 启动和回收；主题变化通过进程 stdin 同步。域名定向加速插件不会修改系统代理，也不会启用 TUN，只监听 `127.0.0.1:7890`，并将白名单外的域名设为 `DIRECT`。
 

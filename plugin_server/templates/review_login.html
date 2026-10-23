@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>审核登录 · NexHub</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="stylesheet" href="/nexhub/assets/site.css">
+</head>
+<body>
+<header class="topbar">
+    <a class="brand" href="/nexhub">
+        <span class="brand-mark">N</span>
+        <span>NexHub Plugins<small>REVIEW CONSOLE</small></span>
+    </a>
+    <nav class="nav">
+        <a href="/nexhub">广场介绍</a>
+        <a href="/nexhub/plugin">插件广场</a>
+        <a class="nav-admin" href="/nexhub/plugin/review">审核后台</a>
+    </nav>
+</header>
+
+<main class="wrap">
+    <section class="download-shell login-shell">
+        <div class="download-head">
+            <div class="eyebrow">Plugin Review</div>
+            <h1>审核登录</h1>
+            <p>审核后台与主站分开管理。待审核 {{PENDING_COUNT}} 个插件。</p>
+        </div>
+        <div class="panel login-card">
+            {{ERROR}}
+            <form class="login-form" method="post" action="/nexhub/plugin/review/login">
+                <label>审核账号 <input type="text" name="username" autocomplete="username" required autofocus></label>
+                <label>审核密码 <input type="password" name="password" autocomplete="current-password" required></label>
+                <button class="btn btn-primary" type="submit">登录审核后台</button>
+            </form>
+            <p class="login-note">这里使用的是独立插件审核凭据，不是主站管理员密码。凭据保存在插件服务端本地，不会出现在开源代码中。</p>
+        </div>
+        <div class="download-links"><a href="/nexhub/plugin">← 返回插件广场</a></div>
+    </section>
+</main>
+
+<footer class="footer">
+    <span>NexHub Plugin Review · 独立审核系统</span>
+    <span><a href="/nexhub">广场介绍</a></span>
+</footer>
+</body>
+</html>
