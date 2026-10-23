@@ -6,8 +6,8 @@ NexHub 面向个人和可信好友小范围使用：在本机一键发布文件/
 
 **Fluent Design · 默认深色主题 · FluentWindow 可折叠侧边栏 · 圆角卡片 · 深浅主题一键切换 · OSS 密钥只存在 ECS 后端**
 
-[![GitHub Release](https://img.shields.io/github/v/release/mouchenguo/NexHub?include_prereleases&label=release)](https://github.com/mouchenguo/NexHub/releases/latest)
-[![Platform](https://img.shields.io/badge/platform-Windows%2010%20%2F%2011-0078D4)](https://github.com/mouchenguo/NexHub/releases/latest)
+[![GitHub Release](https://img.shields.io/github/v/release/mouchenguo/NexHub?include_prereleases&label=release)](https://github.com/mouchenguo/NexHub/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%20%2F%2011-0078D4)](https://github.com/mouchenguo/NexHub/releases/tag/v0.1.2-beta)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB)](https://www.python.org/)
 
 ## 下载
