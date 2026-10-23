@@ -223,7 +223,11 @@ class ToolboxPage(BasePage):
         controls = record.controls
         state = self._plugin_states.get(record.plugin_id, {}) if running else {}
         if controls:
-            if running and record.plugin_id not in self._plugin_states:
+            if (
+                running
+                and record.plugin_id not in self._plugin_states
+                and record.plugin_id not in self._quick_workers
+            ):
                 self._refresh_plugin_state(record)
             for control in controls:
                 kind = str(control.get("type") or "button")
@@ -339,26 +343,35 @@ class ToolboxPage(BasePage):
         payload: dict,
     ) -> None:
         plugin_id = record.plugin_id
-        if plugin_id in self._quick_workers:
+        if plugin_id in self._quick_workers or plugin_id in self._state_workers:
             return
+        # 先占位，避免 start() 触发的 changed 信号又安排一次状态刷新，
+        # 导致旧状态覆盖本次快捷操作的结果。
+        self._quick_workers[plugin_id] = None  # type: ignore[assignment]
         try:
             if not self.ctx.plugin_processes.is_running(plugin_id):
                 self.ctx.plugin_processes.start(record, hidden=True)
                 self._set_active(record, True)
         except Exception as exc:  # noqa: BLE001
+            self._quick_workers.pop(plugin_id, None)
             self.ctx.notify(f"插件启动失败：{exc}", "error")
             self._render_installed()
             return
 
-        worker = FunctionWorker(
-            lambda: self.ctx.plugin_processes.request(
-                plugin_id,
-                action,
-                payload,
-                120.0 if action == "optimize" else 30.0,
-            ),
-            parent=self,
-        )
+        try:
+            worker = FunctionWorker(
+                lambda: self.ctx.plugin_processes.request(
+                    plugin_id,
+                    action,
+                    payload,
+                    120.0 if action == "optimize" else 30.0,
+                ),
+                parent=self,
+            )
+        except Exception as exc:  # noqa: BLE001
+            self._quick_workers.pop(plugin_id, None)
+            self.ctx.notify(f"插件操作启动失败：{exc}", "error")
+            return
         self._quick_workers[plugin_id] = worker
 
         def succeeded(data) -> None:
