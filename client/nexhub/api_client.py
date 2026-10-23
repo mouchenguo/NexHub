@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -49,6 +50,12 @@ class ApiClient:
 
     def _request(self, method: str, path: str, *, timeout: int = DEFAULT_TIMEOUT, **kwargs) -> Any:
         headers = kwargs.pop("headers", {}) or {}
+        if "json" in kwargs:
+            payload = kwargs.pop("json")
+            kwargs["data"] = json.dumps(
+                payload, ensure_ascii=False, separators=(",", ":")
+            ).encode("utf-8")
+            headers.setdefault("Content-Type", "application/json; charset=utf-8")
         if self.config.token:
             headers["Authorization"] = f"Bearer {self.config.token}"
         try:
@@ -73,9 +80,10 @@ class ApiClient:
         return response.text
 
     # ------------------------------------------------------------------ 认证
-    def login(self, username: str, password: str) -> dict:
+    def login(self, identifier: str, password: str) -> dict:
+        """identifier 可以是用户名或昵称；请求体统一使用 UTF-8 JSON。"""
         return self._request(
-            "POST", "/api/auth/login", json={"username": username, "password": password}
+            "POST", "/api/auth/login", json={"username": identifier, "password": password}
         )
 
     def register(self, username: str, password: str, display_name: str = "") -> dict:

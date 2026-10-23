@@ -130,15 +130,15 @@
     <main>
       <section class="hero">
         <div>
-          <div class="badge"><span class="dot"></span> v0.1.2 已发布</div>
+          <div class="badge"><span class="dot"></span> v0.1.2-beta 预发行</div>
           <h1>把文件与远程桌面<br><span>放进同一个工作台</span></h1>
           <p class="lead">NexHub 是面向 Windows 的共享与远程主机客户端：文件共享、OSS 长期缓存、临时穿透、RDP 主机、同账号在线设备和 NPS 隧道集中管理。</p>
           <div class="actions" id="download">
-            <a class="btn btn-primary" href="NexHub-v0.1.2.exe" download>↓ 下载 Windows 客户端</a>
+            <a class="btn btn-primary" href="NexHub-v0.1.2-beta.exe" download>↓ 下载 Windows 客户端</a>
             <a class="btn btn-ghost" href="NexHub-Server-Deploy.zip">服务端一键部署包</a>
             <a class="btn btn-ghost" href="latest.json">查看更新信息</a>
           </div>
-          <div class="meta">Windows 10 / 11 · 单文件安装包 · 当前版本 v0.1.2</div>
+          <div class="meta">Windows 10 / 11 · 单文件安装包 · 当前预发行版 v0.1.2-beta</div>
         </div>
         <div class="preview" aria-hidden="true">
           <div class="preview-inner">
@@ -184,14 +184,14 @@
             </ul>
           </div>
           <div class="card" id="notes">
-            <div class="eyebrow">Release Notes</div><h2 style="font-size:24px;margin-bottom:16px">v0.1.2</h2>
+            <div class="eyebrow">Release Notes</div><h2 style="font-size:24px;margin-bottom:16px">v0.1.2-beta</h2>
             <ul class="changelog">
               <li>新增修改昵称：登录后打开左下角账户面板即可修改，账号页同步提供入口。</li>
-              <li>昵称支持 1-32 个字符，自动去除首尾空格，并拒绝空值、换行和控制字符。</li>
-              <li>服务端新增 <code>PATCH /api/auth/profile</code>，只更新展示昵称，不改变登录用户名和密码。</li>
-              <li>修改后窗口标题、侧边栏用户卡片和账户资料立即同步，写入本地配置。</li>
-              <li>服务端声明 <code>profile_update</code> 能力；旧服务端未提供该能力时自动隐藏昵称编辑入口。</li>
-              <li>保留原有账号密码、头像、注册审核、共享与 NPS 功能；版本号升级为 v0.1.2。</li>
+              <li>登录支持用户名或昵称，统一使用 UTF-8 与 Unicode NFC，中文昵称和跨端输入不再乱码。</li>
+              <li>昵称重复时提示使用用户名登录，避免登录到错误账号。</li>
+              <li>启动后自动检查一次更新；发现新版本时询问用户是否自动下载、替换并重启。</li>
+              <li>自动更新会校验 SHA-256，替换当前 exe 后重新启动；账号和本地配置保持不变。</li>
+              <li>版本号改为 v0.1.2-beta；v1.0.0 之前全部标记为预发行版，v1.0.0 才是第一个正式发行版。</li>
             </ul>
           </div>
         </div>
@@ -199,7 +199,7 @@
     </main>
 
     <footer>
-      <span>NexHub v0.1.2 · 文件共享与远程主机 · <a href="https://github.com/mouchenguo/NexHub" target="_blank" rel="noreferrer">GitHub</a></span>
+      <span>NexHub v0.1.2-beta · 文件共享与远程主机 · <a href="https://github.com/mouchenguo/NexHub" target="_blank" rel="noreferrer">GitHub</a></span>
       <span>更新清单：<a href="latest.json"><code>latest.json</code></a></span>
     </footer>
   </div>

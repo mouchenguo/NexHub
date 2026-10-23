@@ -89,13 +89,15 @@ class AppContext(QObject):
         if self.main_window:
             self.main_window.navigate(page_id)
 
-    def login(self, username: str, password: str, remember: bool = False) -> dict:
-        """登录并切换到在线模式；不把 token / 密码明文写盘。"""
-        username = username.strip()
-        if not username or not password:
-            raise ValueError("请填写账号与密码")
-        result = self.api.login(username, password)
-        return self._start_session(result, username, password, remember)
+    def login(self, identifier: str, password: str, remember: bool = False) -> dict:
+        """使用用户名或昵称登录；不把 token / 密码明文写盘。"""
+        identifier = identifier.strip()
+        if not identifier or not password:
+            raise ValueError("请填写账号/昵称与密码")
+        result = self.api.login(identifier, password)
+        user = result.get("user", {}) if isinstance(result, dict) else {}
+        actual_username = str(user.get("username") or identifier)
+        return self._start_session(result, actual_username, password, remember)
 
     def register(self, username: str, password: str, display_name: str = "") -> dict:
         """提交注册；服务端自动审核通过时直接建立登录会话。"""

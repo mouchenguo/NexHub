@@ -39,6 +39,7 @@ from ..workers import FunctionWorker
 from .base import BasePage
 from .npc import NpcSettingsPanel
 from .nps_tunnels import NpsTunnelPanel
+from .update_dialog import UpdateDialog
 
 
 class SettingsPage(BasePage):
@@ -50,6 +51,8 @@ class SettingsPage(BasePage):
         self._worker: FunctionWorker | None = None
         self._update_worker: FunctionWorker | None = None
         self._latest_update: UpdateInfo | None = None
+        self._update_auto = False
+        self._update_dialog: UpdateDialog | None = None
         self._syncing_theme = False
         self._folders: list[tuple[FIF, str, str, QWidget]] = []
         super().__init__(ctx, parent)
@@ -512,8 +515,12 @@ class SettingsPage(BasePage):
         )
 
     def _check_update(self) -> None:
+        self.check_updates(auto=False)
+
+    def check_updates(self, auto: bool = False) -> None:
         if self._update_worker and self._update_worker.isRunning():
             return
+        self._update_auto = auto
         self.check_update_button.setEnabled(False)
         self.check_update_button.setText("检查中...")
         self.update_status.setText("正在检查更新...")
@@ -532,35 +539,51 @@ class SettingsPage(BasePage):
             self.update_status.setText(
                 f"发现新版本 v{info.latest_version}（当前 v{info.current_version}）"
             )
-            InfoBar.success(
-                "发现新版本",
-                f"可下载 v{info.latest_version}",
-                parent=self,
-                position=InfoBarPosition.TOP_RIGHT,
-                duration=5000,
-            )
+            if not self._update_auto:
+                InfoBar.success(
+                    "发现新版本",
+                    f"可下载 v{info.latest_version}",
+                    parent=self,
+                    position=InfoBarPosition.TOP_RIGHT,
+                    duration=5000,
+                )
+            self._show_update_dialog(info)
         else:
             self.update_status.setText(
                 f"已是最新版本 v{info.current_version} · 下载页：{info.page_url}"
             )
-            InfoBar.info(
-                "检查完成",
-                f"当前已是最新版本 v{info.current_version}",
-                parent=self,
-                position=InfoBarPosition.TOP_RIGHT,
-                duration=2600,
-            )
+            if not self._update_auto:
+                InfoBar.info(
+                    "检查完成",
+                    f"当前已是最新版本 v{info.current_version}",
+                    parent=self,
+                    position=InfoBarPosition.TOP_RIGHT,
+                    duration=2600,
+                )
+        self._update_auto = False
+
+    def _show_update_dialog(self, info: UpdateInfo) -> None:
+        if self._update_dialog is not None and self._update_dialog.isVisible():
+            return
+        self._update_dialog = UpdateDialog(self.ctx, info, self)
+        try:
+            self._update_dialog.exec()
+        finally:
+            self._update_dialog = None
 
     def _on_update_failed(self, message: str) -> None:
+        auto = self._update_auto
+        self._update_auto = False
         self.check_update_button.setEnabled(True)
         self.check_update_button.setText("检查更新")
         self.update_status.setText(f"检查更新失败：{message}")
-        InfoBar.error(
-            "检查更新失败",
-            message,
-            parent=self,
-            position=InfoBarPosition.TOP_RIGHT,
-        )
+        if not auto:
+            InfoBar.error(
+                "检查更新失败",
+                message,
+                parent=self,
+                position=InfoBarPosition.TOP_RIGHT,
+            )
 
     def _open_download_page(self) -> None:
         if self._latest_update and self._latest_update.page_url:

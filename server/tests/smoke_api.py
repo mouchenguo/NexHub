@@ -9,6 +9,7 @@ import base64
 import os
 import shutil
 import sys
+import unicodedata
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -81,7 +82,7 @@ def main() -> int:
         versioned_login = client.post(
             "/api/auth/login",
             json={"username": "demo", "password": "demo1234"},
-            headers={"X-NexHub-Client-Version": "0.1.2"},
+            headers={"X-NexHub-Client-Version": "0.1.2-beta"},
         )
         check(versioned_login.status_code == 200, "当前版本客户端可正常登录")
 
@@ -97,6 +98,60 @@ def main() -> int:
             "注册新用户（自动审核通过）",
         )
         test_headers = auth(register.json()["token"])
+
+        nickname_login = client.post(
+            "/api/auth/login", json={"username": "演示用户", "password": "demo1234"}
+        )
+        check(
+            nickname_login.status_code == 200
+            and nickname_login.json()["user"]["username"] == "demo",
+            "支持使用昵称登录",
+        )
+        tester_nickname_login = client.post(
+            "/api/auth/login", json={"username": "测试用户", "password": "test1234"}
+        )
+        check(
+            tester_nickname_login.status_code == 200
+            and tester_nickname_login.json()["user"]["username"] == "tester",
+            "中文昵称登录",
+        )
+        unicode_nickname = "Café"
+        unicode_register = client.post(
+            "/api/auth/register",
+            json={
+                "username": "unicode_user",
+                "password": "unicode123",
+                "display_name": unicode_nickname,
+            },
+        )
+        unicode_login = client.post(
+            "/api/auth/login",
+            json={
+                "username": unicodedata.normalize("NFD", unicode_nickname),
+                "password": "unicode123",
+            },
+        )
+        check(
+            unicode_register.status_code == 200
+            and unicode_login.status_code == 200
+            and unicode_login.json()["user"]["username"] == "unicode_user",
+            "Unicode NFC/NFD 昵称登录",
+        )
+        duplicate = client.post(
+            "/api/auth/register",
+            json={
+                "username": "tester_dup",
+                "password": "test1234",
+                "display_name": "测试用户",
+            },
+        )
+        ambiguous = client.post(
+            "/api/auth/login", json={"username": "测试用户", "password": "test1234"}
+        )
+        check(
+            duplicate.status_code == 200 and ambiguous.status_code == 409,
+            "重复昵称登录时提示使用用户名",
+        )
 
         db.set_setting("registration_auto_approve", "0")
         pending_register = client.post(
@@ -382,8 +437,8 @@ def main() -> int:
 
         release_payload = [
             {
-                "tag_name": "v0.1.2",
-                "html_url": "https://github.com/mouchenguo/NexHub/releases/tag/v0.1.2",
+                "tag_name": "v0.1.2-beta",
+                "html_url": "https://github.com/mouchenguo/NexHub/releases/tag/v0.1.2-beta",
                 "published_at": "2026-10-20T00:00:00Z",
                 "body": "旧版本",
                 "assets": [],

@@ -1,18 +1,18 @@
 {
-  "version": "0.1.2",
-  "download_url": "NexHub-v0.1.2.exe",
+  "version": "0.1.2-beta",
+  "download_url": "NexHub-v0.1.2-beta.exe",
   "page_url": "./",
   "server_download_url": "NexHub-Server-Deploy.zip",
   "server_bundle_url": "NexHub-Server-Bundle.zip",
   "published_at": "2026-10-23",
   "notes": [
-    "新增修改昵称：登录后打开左下角账户面板即可修改，账号页同步提供入口",
-    "昵称支持 1-32 个字符，自动去除首尾空格，并拒绝空值、换行和控制字符",
-    "服务端新增 PATCH /api/auth/profile，只更新展示昵称，不改变登录用户名和密码",
-    "修改后窗口标题、侧边栏用户卡片和账户资料立即同步，写入本地配置",
-    "服务端声明 profile_update 能力；旧服务端未提供该能力时自动隐藏昵称编辑入口",
-    "保留原有账号密码、头像、注册审核、共享与 NPS 功能；版本号升级为 v0.1.2"
+    "新增修改昵称：账户面板和账号页均可修改，登录用户名保持不变",
+    "登录支持用户名或昵称，统一使用 UTF-8 与 Unicode NFC，重复昵称提示使用用户名",
+    "启动后自动检查一次更新，发现新版本时询问是否自动下载、替换并重启",
+    "自动更新校验 SHA-256，替换当前 exe 后重新启动，账号和本地配置保持不变",
+    "版本号改为 v0.1.2-beta；v1.0.0 之前全部为预发行版，v1.0.0 才是第一个正式发行版",
+    "保留原有账号密码、头像、注册审核、共享与 NPS 功能"
   ],
-  "sha256": "6CD05C80C6D1A255FCCEA8C46A5574F6A389248FCAD2563EA23A0F4FC5CF4FC3",
-  "server_sha256": "6A9C8C3F10946036344121EF9554B70D13268E36FFBB8CF32BEA9498A70AC10F"
+  "sha256": "0C20196FE6C378184D9268B817F2BECC44F79045811BD029E6CF43132D9046EF",
+  "server_sha256": "DB05249649F99AEBD56EA8DE420D3874FCAE8147B811EC18E0FD5159B64DCDA8"
 }

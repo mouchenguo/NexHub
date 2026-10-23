@@ -129,9 +129,9 @@ class AccountPanel(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
 
-        layout.addWidget(CaptionLabel("账号"))
+        layout.addWidget(CaptionLabel("账号或昵称"))
         self.username_edit = LineEdit()
-        self.username_edit.setPlaceholderText("请输入用户名")
+        self.username_edit.setPlaceholderText("请输入用户名或昵称")
         layout.addWidget(self.username_edit)
         layout.addWidget(CaptionLabel("密码"))
         self.password_edit = PasswordLineEdit()
@@ -319,7 +319,7 @@ class AccountPanel(QWidget):
         username = self.username_edit.text().strip()
         password = self.password_edit.text()
         if not username or not password:
-            self.login_status.setText("请填写账号与密码")
+            self.login_status.setText("请填写账号/昵称与密码")
             return
         server_url, error = self._server_url_or_error()
         if error:
@@ -342,6 +342,7 @@ class AccountPanel(QWidget):
         self.login_button.setEnabled(True)
         self.login_button.setText("登录")
         self.password_edit.clear()
+        self.username_edit.setText(self.ctx.config.username)
         self.login_status.setText("登录成功")
         self._sync_state()
         self.close_panel()

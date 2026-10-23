@@ -131,6 +131,11 @@ def main() -> int:
             and profile.get("status") == "approved",
             "注册账号凭证可访问个人资料",
         )
+        nickname_login = api.login("联调注册用户", "live1234")
+        check(
+            nickname_login.get("user", {}).get("username") == "live_register",
+            "客户端使用中文昵称登录",
+        )
         renamed = api.update_profile("联调昵称")
         check(
             renamed.get("user", {}).get("display_name") == "联调昵称"

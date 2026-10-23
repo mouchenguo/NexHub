@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import sqlite3
+import unicodedata
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -214,6 +215,17 @@ def init_db() -> None:
             conn.execute(
                 "ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'approved'"
             )
+        for user_row in conn.execute(
+            "SELECT id, display_name FROM users WHERE display_name <> ''"
+        ).fetchall():
+            normalized = unicodedata.normalize(
+                "NFC", user_row["display_name"].strip()
+            )
+            if normalized != user_row["display_name"]:
+                conn.execute(
+                    "UPDATE users SET display_name = ? WHERE id = ?",
+                    (normalized, user_row["id"]),
+                )
         share_columns = {
             row["name"] for row in conn.execute("PRAGMA table_info(shares)").fetchall()
         }

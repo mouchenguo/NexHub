@@ -34,7 +34,7 @@ class ServerUpdateInfo:
 
 
 def version_key(value: str) -> tuple:
-    """比较 v0.1.0-beta / 0.1.2 这类版本号（规则与客户端一致）。"""
+    """比较 v0.1.0-beta / 0.1.2-beta 这类版本号（规则与客户端一致）。"""
     text = (value or "").strip().lower().lstrip("v")
     if "+" in text:
         text = text.split("+", 1)[0]

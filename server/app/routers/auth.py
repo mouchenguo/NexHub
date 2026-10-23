@@ -4,7 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from .. import db
-from ..common import client_ip, user_payload
+from ..common import client_ip, normalize_account_text, user_payload
 from ..compat import (
     require_compatible_client,
     request_client_version,
@@ -21,10 +21,10 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 @router.post("/register")
 def register(payload: RegisterIn, request: Request):
     require_compatible_client(request)
-    username = payload.username.strip()
+    username = normalize_account_text(payload.username)
     if db.query_one("SELECT id FROM users WHERE username = ?", (username,)):
         raise HTTPException(status_code=409, detail="该用户名已被注册")
-    display_name = payload.display_name or username
+    display_name = normalize_account_text(payload.display_name) or username
     status, review_message = evaluate_registration(username, display_name)
     password_hash, salt = hash_password(payload.password)
     user_id = db.execute(
@@ -60,7 +60,26 @@ def register(payload: RegisterIn, request: Request):
 @router.post("/login")
 def login(payload: LoginIn, request: Request):
     require_compatible_client(request)
-    user = db.query_one("SELECT * FROM users WHERE username = ?", (payload.username.strip(),))
+    identifier = normalize_account_text(payload.username)
+    if not identifier:
+        raise HTTPException(status_code=400, detail="请输入用户名或昵称")
+    user = db.query_one("SELECT * FROM users WHERE username = ?", (identifier,))
+    if not user:
+        matches = db.query_all(
+            "SELECT * FROM users WHERE display_name = ? LIMIT 2", (identifier,)
+        )
+        if len(matches) > 1:
+            db.log_event(
+                "warning",
+                "auth",
+                f"昵称登录冲突：{identifier}",
+                ip=client_ip(request),
+            )
+            raise HTTPException(
+                status_code=409,
+                detail="该昵称对应多个账号，请使用用户名登录",
+            )
+        user = matches[0] if matches else None
     if not user or not verify_password(
         payload.password, user["password_hash"], user["password_salt"]
     ):
@@ -70,7 +89,7 @@ def login(payload: LoginIn, request: Request):
             f"登录失败：{payload.username}",
             ip=client_ip(request),
         )
-        raise HTTPException(status_code=401, detail="用户名或密码错误")
+        raise HTTPException(status_code=401, detail="用户名/昵称或密码错误")
     status = str(user.get("status") or STATUS_APPROVED)
     if status != STATUS_APPROVED:
         db.log_event(
@@ -115,7 +134,7 @@ def update_profile(
     request: Request,
     user: dict = Depends(get_current_user),
 ):
-    display_name = payload.display_name
+    display_name = normalize_account_text(payload.display_name)
     if not display_name:
         raise HTTPException(status_code=400, detail="昵称不能为空")
     if any(ord(char) < 32 or ord(char) == 127 for char in display_name):

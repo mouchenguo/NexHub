@@ -103,6 +103,7 @@ class MainWindow(FluentWindow):
         self._avatar_reload_pending = False
         self._allow_close = False
         self._tray_notified = False
+        self._startup_update_checked = False
         self._tray: QSystemTrayIcon | None = None
         self._build_window()
         self._add_pages()
@@ -113,6 +114,7 @@ class MainWindow(FluentWindow):
         self.ctx.connection_changed.connect(self._on_connection_changed)
         self.ctx.profile_changed.connect(self._on_profile_changed)
         self._setup_tray()
+        QTimer.singleShot(1600, self._check_updates_on_startup)
         if self.ctx.server_compat.warning:
             QTimer.singleShot(
                 1200,
@@ -207,6 +209,16 @@ class MainWindow(FluentWindow):
         check = getattr(panel, "startup_check", None)
         if callable(check):
             check()
+
+    def _check_updates_on_startup(self) -> None:
+        """登录状态下每次启动最多自动检查一次；失败静默处理。"""
+        if self._startup_update_checked or not self.ctx.online:
+            return
+        self._startup_update_checked = True
+        settings_page = self._pages.get("settings")
+        check = getattr(settings_page, "check_updates", None)
+        if callable(check):
+            check(auto=True)
 
     # ------------------------------------------------------------------ 用户卡片
     def _show_account_panel(self) -> None:
@@ -360,6 +372,8 @@ class MainWindow(FluentWindow):
         self.refresh_shell()
         if online:
             self._load_user_avatar()
+            if not self._startup_update_checked:
+                QTimer.singleShot(900, self._check_updates_on_startup)
         else:
             self._set_default_avatar()
         current = self.stackedWidget.currentWidget()

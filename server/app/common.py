@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import unicodedata
 from datetime import datetime, timezone
 from pathlib import PurePosixPath
 from typing import Any
@@ -10,6 +11,11 @@ from . import db
 from .config import settings
 
 GIB = 1024 ** 3
+
+
+def normalize_account_text(value: str) -> str:
+    """统一账号/昵称文本：去首尾空格并转为 Unicode NFC。"""
+    return unicodedata.normalize("NFC", (value or "").strip())
 
 
 def quota_bytes() -> int:

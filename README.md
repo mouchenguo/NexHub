@@ -14,11 +14,18 @@ NexHub 面向个人和可信好友小范围使用：在本机一键发布文件/
 
 | 文件 | 说明 |
 | --- | --- |
-| [`NexHub-v0.1.2.exe`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.2/NexHub-v0.1.2.exe) | Windows 10 / 11 x64 客户端 |
-| [`NexHub-Server-Deploy.zip`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.2/NexHub-Server-Deploy.zip) | 服务端一键部署包（含安装脚本） |
-| [`NexHub-Server-Bundle.zip`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.2/NexHub-Server-Bundle.zip) | 仅服务端程序包，适合手动升级 |
+| [`NexHub-v0.1.2-beta.exe`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.2-beta/NexHub-v0.1.2-beta.exe) | Windows 10 / 11 x64 客户端（预发行） |
+| [`NexHub-Server-Deploy.zip`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.2-beta/NexHub-Server-Deploy.zip) | 服务端一键部署包（含安装脚本） |
+| [`NexHub-Server-Bundle.zip`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.2-beta/NexHub-Server-Bundle.zip) | 仅服务端程序包，适合手动升级 |
 
-> GitHub Release 的客户端资产只保留一个 `NexHub-v0.1.2.exe`，不再同时上传 `NexHub.exe` 与版本化副本。完整发布页见 [Releases](https://github.com/mouchenguo/NexHub/releases)。
+> GitHub Release 的客户端资产只保留一个 `NexHub-v0.1.2-beta.exe`，不再同时上传 `NexHub.exe` 与版本化副本。完整发布页见 [Releases](https://github.com/mouchenguo/NexHub/releases)。
+
+## 版本策略
+
+- `v1.0.0` 之前所有版本都是预发行版，版本号统一带 `-beta` 后缀，例如 `v0.1.2-beta`。
+- GitHub Release 在 `v1.0.0` 之前都标记为 **Pre-release**，不作为稳定发行版。
+- `v1.0.0` 才是第一个正式发行版；达到该版本后再按正常稳定版策略发布。
+- 发布 tag 与版本号保持一致，下载文件名使用 `NexHub-v<版本>.exe`。
 
 ## 界面预览
 
@@ -56,10 +63,10 @@ NexHub 面向个人和可信好友小范围使用：在本机一键发布文件/
 
 ### Windows 客户端（PyQt6 + PyQt-Fluent-Widgets）
 
-- **账号系统**：主界面左下角显示「请登录」，点击后打开居中的内嵌登录面板；支持登录 / 注册切换、记住我（DPAPI 加密凭证）、自动登录、修改昵称、修改密码、退出登录；注册默认由服务端自动审核通过，也可切换为人工审核；服务器地址在设置页配置，**不硬编码 ECS IP**。
+- **账号系统**：主界面左下角显示「请登录」，点击后打开居中的内嵌登录面板；支持登录 / 注册切换、用户名或昵称登录（UTF-8 + Unicode NFC 统一处理）、记住我（DPAPI 加密凭证）、自动登录、修改昵称、修改密码、退出登录；注册默认由服务端自动审核通过，也可切换为人工审核；服务器地址在设置页配置，**不硬编码 ECS IP**。
 - **单实例运行**：重复启动不会创建新窗口，而是通过本地 IPC 唤起已有实例（包括已关闭窗口并隐藏到托盘的情况）。
 - **窗口行为**：最小化保留在任务栏；点击关闭按钮才隐藏到托盘；托盘菜单仅保留「显示 NexHub / 退出 NexHub」。
-- **检查更新与下载页**：设置 → 关于与本地数据 → 检查更新，读取 `服务器地址/downloads/latest.json`；介绍页与安装包位于 `服务器地址/downloads/`。当前版本 `v0.1.2`。
+- **检查更新与下载页**：设置 → 关于与本地数据 → 检查更新，读取 `服务器地址/downloads/latest.json`；启动后登录状态会自动检查一次，发现新版本时询问是否自动下载、替换并重启。当前版本 `v0.1.2-beta`。
 - **仪表盘**：活跃共享、RDP 主机数量、OSS 已用容量、服务状态、最近动态。
 - **一键共享**：
   - 自动扫描文件/文件夹并统计大小；
@@ -91,7 +98,7 @@ NexHub 面向个人和可信好友小范围使用：在本机一键发布文件/
 - **仪表盘**：`CardWidget` 圆角卡片 + `StatCard` 统计卡、`ProgressBar` 存储进度、最近动态列表，布局对齐现代 Fluent 仪表盘。
 - **Fluent 控件**：`InfoBar`（操作提示）、`PillPushButton`（状态胶囊）、`SegmentedWidget`（主题切换）、`SearchLineEdit`、`ComboBox`、`SpinBox`、`TableWidget`、`TreeWidget`、`PasswordLineEdit`、`AvatarWidget`、`MessageBox`。
 - **主题**：`ThemeManager` 调用 `setTheme(Theme.DARK/LIGHT/AUTO)`，默认深色，选择保存到本地 JSON；不手写 QSS，由 qfluentwidgets 自动刷新全部控件。
-- **对话框**：发布共享、文件浏览、RDP 主机编辑、修改昵称、修改密码均使用 Fluent 组件 + `FluentStyleSheet.DIALOG`；确认操作统一使用 `MessageBox`。
+- **对话框**：发布共享、文件浏览、RDP 主机编辑、修改昵称、修改密码、更新提示均使用 Fluent 组件 + `FluentStyleSheet.DIALOG`；确认操作统一使用 `MessageBox`。
 - **设置子模块**：文件夹式列表（外观 / ECS 服务器 / NPC 管理 / 传输与本地服务 / 关于），点击进入子页面并可返回；NPC 管理下再进入「隧道管理」第三层；不再占用侧边栏。
 - **NPC 管理与隧道管理**：设置文件夹内的二级 NPC 子页面，以及其下的「隧道管理」子页面；NPC 安装/写配置/重启通过 `subprocess` + UAC helper 完成；配置写入保留 `npc.conf` 其他隧道配置与注释，nps 域名在同一模块维护。
 - **未登录预览**：不再预置演示共享/文件/下载记录；仍可预览所有本地页面与操作，登录后切换到 ECS 云端数据。
@@ -405,7 +412,7 @@ cd D:\Code\Project\NexHub\client
 | --- | --- | --- |
 | GET | `/api/health` | 健康检查 |
 | POST | `/api/auth/register` | 注册；自动审核通过时直接返回 token，否则进入待审核 |
-| POST | `/api/auth/login` | 登录；待审核或已拒绝账号返回 `403` |
+| POST | `/api/auth/login` | 登录，`username` 字段可填用户名或昵称；待审核或已拒绝账号返回 `403` |
 | GET | `/api/auth/me` | 当前用户 + 容量 + 审核状态 |
 | PATCH | `/api/auth/profile` | 修改当前用户昵称（`display_name`，1-32 字符） |
 | POST | `/api/auth/password` | 修改密码 |
@@ -494,7 +501,7 @@ python server\tests\preview_admin.py
 - 临时共享依赖客户端内嵌服务 + nps 隧道；客户端退出后自动失效。
 - OSS 自动清理是全局策略，会删除最早创建的活跃 OSS 共享；客户端发布页和管理后台均有提示。
 - 管理后台为管理员单一角色，未实现细粒度 RBAC、2FA、分页；适合个人/小型可信团队。
-- 客户端可直接下载 Release 中的 `NexHub-v0.1.2.exe`（onefile），也可使用 `client/build_client.bat` 自行打包。
+- 客户端可直接下载 Release 中的 `NexHub-v0.1.2-beta.exe`（onefile），也可使用 `client/build_client.bat` 自行打包。
 - RDP 依赖 Windows 自带 `mstsc.exe`；macOS/Linux 不支持该模块。
 - 客户端离线体验使用 `%APPDATA%\NexHub\demo` 下的真实示例文件，仅用于演示交互。
 
