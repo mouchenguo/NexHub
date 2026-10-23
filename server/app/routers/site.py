@@ -193,6 +193,11 @@ def legacy_downloads_slash():
     return RedirectResponse("/nexhub/downloads", status_code=307)
 
 
+@router.get("/downloads/index.html", include_in_schema=False)
+def legacy_downloads_index():
+    return RedirectResponse("/nexhub/downloads", status_code=307)
+
+
 @router.get("/downloads/latest.json")
 def legacy_manifest():
     return _serve_download("latest.json", "application/json")
