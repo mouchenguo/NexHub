@@ -72,6 +72,7 @@ NexHub 面向个人和可信好友小范围使用：在本机一键发布文件/
 - **共享广场**：卡片网格、搜索、排序、目录树浏览、勾选部分文件、自定义保存路径、流式下载与进度显示。
 - **RDP 主机**：本地保存主机名称、IP/域名、端口、用户名、加密密码和备注；新增/编辑/删除；一键调用 Windows 原生 `mstsc.exe`，优先生成临时 `.rdp` 文件并在会话结束后清理；支持勾选 NPS 隧道并使用 NPC 配置中的 RDP 隧道地址。
 - **工具箱（插件化）**：内置「内存优化」插件；点击「添加插件」可生成 `ToolPlugin` 空模板，模板可编辑并保存到 `%APPDATA%\NexHub\plugins`，保存后立即加载；支持「打开插件目录」和重新扫描加载。
+- **NPC 一键自动配置**：设置 → NPC 与内网穿透 → 「一键自动配置 NPC」；登录后点击即可请求 ECS，服务端幂等创建/修复当前设备的 NPS 客户端与 TCP 隧道，客户端自动安装 NPC、写入 `npc.conf`、重启服务，并显示公网 RDP 地址，无需手动填写 vkey。
 - **设置 → NPC 管理 → 隧道管理**：三层文件夹式导航；填写本机服务 IP/端口后，ECS 自动调用 NPS Web API 创建独立 NPS 客户端并生成唯一 vkey；支持将 vkey/NPS 地址下发到本机 `npc.conf`、一键重启 NPC、启停/编辑/删除隧道。发布临时共享时 ECS 会为该共享自动分配公网 TCP 端口并创建 NPS 隧道，取消/删除共享时自动关闭隧道；离线体验使用模拟隧道，不调用真实 NPS、不写本机配置。
 - **设置 → NPC 与内网穿透**：内置 NPC 资源，启动时检测 `C:\Program Files\npc\npc.exe`；缺失时经 UAC 自动释放，目录损坏时提示重新解压修复；NPC 只提供「主机 IP（含端口）」和「vkey」两个输入项，保存写入 `C:\Program Files\npc\conf\npc.conf`，支持一键重启 `Npc` 服务；RDP/NPS 隧道地址也在此模块统一维护。
 - **个人卡片**：未登录时左下角显示「请登录」，点击打开居中登录面板；登录后展示头像、昵称与角色，可更换头像、修改密码或退出登录。头像直传 ECS 本地存储并以内联图片返回，不使用 OSS。
@@ -410,6 +411,7 @@ cd D:\Code\Project\NexHub\client
 | DELETE | `/api/shares/{id}` | 删除共享 |
 | GET | `/api/tunnels` | 当前用户的 NPS 隧道列表 |
 | POST | `/api/tunnels` | 创建 NPS 客户端与隧道记录；`rdp_task=true` 时同时创建 TCP 映射 |
+| POST | `/api/tunnels/auto` | 幂等创建/修复当前设备的 NPS 客户端与 TCP 隧道（一键自动配置） |
 | PATCH | `/api/tunnels/{id}` | 编辑隧道名称与本地服务地址 |
 | POST | `/api/tunnels/{id}/start` / `stop` | 启用 / 停用 NPS 客户端 |
 | DELETE | `/api/tunnels/{id}` | 删除隧道与 NPS 客户端 |
@@ -432,6 +434,9 @@ python server\tests\smoke_api.py
 
 # 客户端业务层 ↔ 后端联调（自动启动临时服务端，含 RDP 密码加密检查）
 python client\tests\live_integration.py
+
+# NPC 一键自动配置业务层（使用 Fake API/NPC，不触发 UAC）
+python client\tests\auto_npc_smoke.py
 
 # 客户端离屏 GUI 冒烟（6 个页面 / 深浅主题）
 $env:QT_QPA_PLATFORM="offscreen"

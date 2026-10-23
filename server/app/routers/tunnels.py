@@ -19,6 +19,7 @@ from ..nps_api import (
     create_tcp_tunnel,
     delete_client,
     delete_tunnel,
+    find_client,
     list_tunnels as list_nps_tunnels,
     set_client_enabled,
     update_client,
@@ -156,6 +157,128 @@ def create_tunnel(
         ip=client_ip(request),
     )
     return tunnel_payload(row) if row else {}
+
+
+@router.post("/auto")
+def auto_tunnel(
+    payload: NpsTunnelCreateIn,
+    request: Request,
+    user: dict = Depends(get_current_user),
+):
+    """幂等地为当前设备准备 NPS 主机与 TCP 隧道，供客户端一键配置 NPC。"""
+    local_host = _validate_local_host(payload.local_host)
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="设备名称不能为空")
+    server_addr, server_port = _nps_connection()
+
+    existing = db.query_one(
+        "SELECT * FROM nps_tunnels WHERE owner_id = ? AND name = ? AND local_port = ? "
+        "ORDER BY id ASC LIMIT 1",
+        (int(user["id"]), name, int(payload.local_port)),
+    )
+    if existing:
+        row = _repair_auto_tunnel(
+            existing,
+            user,
+            payload.rdp_task,
+            server_addr,
+            server_port,
+        )
+        created = False
+    else:
+        tunnel = create_tunnel(payload, request, user)
+        row = _row(int(tunnel["id"]))
+        created = True
+
+    if not row:
+        raise HTTPException(status_code=500, detail="NPS 隧道记录不存在")
+    db.log_event(
+        "info",
+        "nps",
+        f"{'创建' if created else '复用'}自动配置隧道：{row['name']}"
+        f"（公网端口 {row.get('public_port') or '--'}）",
+        user_id=int(user["id"]),
+        ip=client_ip(request),
+    )
+    return {"created": created, "tunnel": tunnel_payload(row)}
+
+
+def _nps_row_id(row: dict) -> int:
+    return int(row.get("Id") or row.get("id") or 0)
+
+
+def _repair_auto_tunnel(
+    tunnel: dict,
+    user: dict,
+    rdp_task: bool,
+    server_addr: str,
+    server_port: int,
+) -> dict | None:
+    """确认 NPS 客户端/TCP 任务仍存在；缺失时自动重建并更新 vkey。"""
+    tunnel_id = int(tunnel["id"])
+    name = str(tunnel["name"])
+    vkey = str(tunnel.get("vkey") or "")
+    client = None
+    if vkey:
+        try:
+            client = find_client(vkey)
+        except NpsApiError as exc:
+            raise HTTPException(status_code=502, detail=f"查询 NPS 客户端失败：{exc}") from exc
+
+    if client is None:
+        new_vkey = generate_token(24)
+        try:
+            client = create_client(_remark(user, name), new_vkey)
+        except NpsApiError as exc:
+            raise HTTPException(status_code=502, detail=f"重建 NPS 客户端失败：{exc}") from exc
+        vkey = new_vkey
+        db.execute(
+            "UPDATE nps_tunnels SET nps_client_id = ?, vkey = ?, nps_task_id = NULL, "
+            "public_port = NULL WHERE id = ?",
+            (int(client["id"]), vkey, tunnel_id),
+        )
+        tunnel = _row(tunnel_id)
+
+    nps_client_id = _nps_row_id(client)
+    if nps_client_id <= 0:
+        raise HTTPException(status_code=502, detail="NPS 客户端 id 无效")
+    try:
+        set_client_enabled(nps_client_id, True)
+    except NpsApiError as exc:
+        raise HTTPException(status_code=502, detail=f"启用 NPS 客户端失败：{exc}") from exc
+
+    now = db.utcnow()
+    db.execute(
+        "UPDATE nps_tunnels SET nps_client_id = ?, server_addr = ?, server_port = ?, "
+        "enabled = 1, updated_at = ? WHERE id = ?",
+        (nps_client_id, server_addr, int(server_port), now, tunnel_id),
+    )
+    tunnel = _row(tunnel_id)
+
+    if rdp_task:
+        task_id = int(tunnel.get("nps_task_id") or 0)
+        try:
+            tasks = list_nps_tunnels("tcp")
+        except NpsApiError as exc:
+            raise HTTPException(status_code=502, detail=f"查询 NPS 隧道失败：{exc}") from exc
+        if not task_id or not any(_nps_row_id(row) == task_id for row in tasks):
+            local_host = str(tunnel.get("local_host") or "127.0.0.1")
+            try:
+                _create_rdp_task(
+                    tunnel_id,
+                    int(user["id"]),
+                    nps_client_id,
+                    local_host,
+                    int(tunnel["local_port"]),
+                    server_addr,
+                )
+            except (NpsApiError, ValueError) as exc:
+                raise HTTPException(
+                    status_code=502, detail=f"创建 NPS TCP 隧道失败：{exc}"
+                ) from exc
+            tunnel = _row(tunnel_id)
+    return tunnel
 
 
 def _create_rdp_task(

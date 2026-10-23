@@ -188,6 +188,25 @@ def main() -> int:
             patch("app.routers.tunnels.update_client") as nps_update,
             patch("app.routers.tunnels.set_client_enabled") as nps_state,
             patch("app.routers.tunnels.delete_client") as nps_delete,
+            patch(
+                "app.routers.tunnels.create_tcp_tunnel",
+                return_value={"id": 7001, "port": 30011, "target": "127.0.0.1:3389"},
+            ) as nps_tcp_create,
+            patch(
+                "app.routers.tunnels.list_nps_tunnels",
+                return_value=[
+                    {
+                        "Id": 7001,
+                        "Port": 30011,
+                        "TargetStr": "127.0.0.1:3389",
+                        "ClientId": 501,
+                    }
+                ],
+            ),
+            patch(
+                "app.routers.tunnels.find_client",
+                return_value={"Id": 501, "VerifyKey": "test", "Status": True},
+            ),
         ):
             tunnel = client.post(
                 "/api/tunnels",
@@ -213,6 +232,37 @@ def main() -> int:
             check(nps_state.call_count == 2, "隧道启停调用 NPS API")
             removed = client.delete(f"/api/tunnels/{tunnel_id}", headers=test_headers)
             check(removed.status_code == 200 and nps_delete.called, "删除 NPS 隧道")
+
+            auto_payload = {
+                "name": "RDP-测试设备",
+                "local_host": "127.0.0.1",
+                "local_port": 3389,
+                "rdp_task": True,
+            }
+            auto_first = client.post(
+                "/api/tunnels/auto", json=auto_payload, headers=test_headers
+            )
+            check(
+                auto_first.status_code == 200
+                and auto_first.json()["created"]
+                and auto_first.json()["tunnel"]["public_address"],
+                "一键自动配置创建 NPS 主机与隧道",
+            )
+            auto_second = client.post(
+                "/api/tunnels/auto", json=auto_payload, headers=test_headers
+            )
+            check(
+                auto_second.status_code == 200
+                and not auto_second.json()["created"]
+                and auto_second.json()["tunnel"]["id"]
+                == auto_first.json()["tunnel"]["id"],
+                "一键自动配置幂等复用现有主机",
+            )
+            check(
+                nps_create.call_count == 2 and nps_tcp_create.call_count == 1,
+                "自动配置复用 NPS 客户端与 TCP 隧道",
+            )
+
             other = client.get("/api/tunnels", headers=demo_headers)
             check(other.status_code == 200 and other.json()["items"] == [], "隧道按用户隔离")
             check(

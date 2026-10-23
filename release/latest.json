@@ -2,13 +2,13 @@
   "version": "0.1.0-beta",
   "download_url": "NexHub-v0.1.0-beta.exe",
   "page_url": "./",
-  "published_at": "2026-10-22",
+  "published_at": "2026-10-23",
   "notes": [
-    "新增客户端注册与登录切换，注册后可直接进入工作台",
-    "服务端默认自动审核注册，可切换人工审核并在后台通过或拒绝",
-    "管理后台新增注册审核状态与待审核提示",
-    "服务端自动迁移 users.status，现有账号与密码保持不变",
+    "新增 NPC 一键自动配置：服务器自动创建/修复 NPS 主机与 TCP 隧道",
+    "客户端自动安装 NPC、写入 npc.conf、重启服务并显示公网 RDP 地址",
+    "NPS 客户端或隧道丢失时自动重建，已有 vkey 可幂等复用",
+    "保留注册自动审核、管理后台审核和现有账号密码",
     "Release 客户端资产只保留一个 NexHub-v0.1.0-beta.exe"
   ],
-  "sha256": "617FFC296AC5C7C2DCD447BDFFF799CA65039FB0C475C5885325E3A3C7F9F143"
+  "sha256": "6BDC182F4676D54D720746D3211FAAA74C1E402FD811AE90B0CF2B1D79A13BC6"
 }

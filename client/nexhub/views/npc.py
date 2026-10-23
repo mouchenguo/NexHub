@@ -42,6 +42,7 @@ class NpcSettingsPanel(QWidget):
         self._auto_tunnel_worker: FunctionWorker | None = None
         self._startup_checked = False
         self._build()
+        self.ctx.connection_changed.connect(self._on_connection_changed)
 
     # ------------------------------------------------------------------
     def _build(self) -> None:
@@ -90,6 +91,21 @@ class NpcSettingsPanel(QWidget):
         )
         self.lock_banner = Banner("", FIF.INFO, self.install_button)
         layout.addWidget(self.lock_banner)
+
+        self.auto_button = make_button(
+            "一键自动配置 NPC",
+            primary=True,
+            icon=FIF.SYNC,
+            on_click=self._auto_configure_clicked,
+        )
+        self.auto_button.setEnabled(self.ctx.online)
+        layout.addWidget(self.auto_button)
+        auto_hint = CaptionLabel(
+            "登录后点击：服务器自动创建当前设备的 NPS 主机与 TCP 隧道，"
+            "客户端自动写入 npc.conf 并重启 NPC。首次可能需要管理员授权。"
+        )
+        auto_hint.setWordWrap(True)
+        layout.addWidget(auto_hint)
 
         self.config_box = QWidget()
         config_layout = QVBoxLayout(self.config_box)
@@ -158,6 +174,12 @@ class NpcSettingsPanel(QWidget):
         layout.addWidget(self.config_box)
 
     # ------------------------------------------------------------------
+    def _on_connection_changed(self, online: bool) -> None:
+        busy = bool(self._auto_tunnel_worker and self._auto_tunnel_worker.isRunning())
+        self.auto_button.setEnabled(bool(online) and not busy)
+        if not online:
+            self.nps_status.setText("登录后可一键自动配置 NPC")
+
     def startup_check(self) -> None:
         if self._startup_checked:
             return
@@ -167,7 +189,6 @@ class NpcSettingsPanel(QWidget):
         if status.get("installed"):
             if not status.get("service_installed") and status.get("bundle_available"):
                 self._install(repair=False)
-            self._ensure_nps_host()
             return
         if os.environ.get("NEXHUB_NPC_AUTO_INSTALL", "1") == "0":
             return
@@ -298,24 +319,58 @@ class NpcSettingsPanel(QWidget):
             self._info("NPC 安装完成")
         self._ensure_nps_host()
 
-    def _ensure_nps_host(self) -> None:
-        """安装/启动后自动在 NPS 创建当前设备主机。"""
-        if not self.ctx.online or self._auto_tunnel_worker:
+    def _auto_configure_clicked(self) -> None:
+        if not self.ctx.online:
+            self._error("请先登录后再自动配置 NPC", "需要登录")
             return
+        self._start_auto_config(force=True, notify=True)
+
+    def _ensure_nps_host(self) -> None:
+        """安装/启动后自动补齐当前设备的 NPS 主机与 NPC 配置。"""
+        if not self.ctx.online:
+            return
+        self._start_auto_config(force=False, notify=False)
+
+    def _start_auto_config(self, force: bool, notify: bool) -> None:
         if self._auto_tunnel_worker and self._auto_tunnel_worker.isRunning():
             return
+        self._set_busy(True)
+        self.nps_status.setText("正在向服务器申请 NPS 主机与隧道，并配置本机 NPC...")
         self._auto_tunnel_worker = FunctionWorker(
-            self.ctx.tunnels.ensure_local_tunnel, 3389, parent=self
+            self.ctx.tunnels.ensure_local_tunnel,
+            3389,
+            force,
+            parent=self,
         )
-        self._auto_tunnel_worker.succeeded.connect(self._on_auto_tunnel_ready)
-        self._auto_tunnel_worker.failed.connect(
-            lambda message: self._error(f"自动注册 NPS 主机失败：{message}", "NPS 注册失败")
+        self._auto_tunnel_worker.succeeded.connect(
+            lambda result: self._on_auto_configured(result, notify)
         )
+        self._auto_tunnel_worker.failed.connect(self._on_auto_configure_failed)
+        self._auto_tunnel_worker.finished.connect(
+            lambda: setattr(self, "_auto_tunnel_worker", None)
+        )
+        self._auto_tunnel_worker.finished.connect(self._set_idle)
         self._auto_tunnel_worker.start()
 
-    def _on_auto_tunnel_ready(self, tunnel: dict | None) -> None:
-        if tunnel:
-            self.nps_status.setText(f"本机 NPS 主机已注册：{tunnel.get('name', '')}")
+    def _on_auto_configured(self, result: dict | None, notify: bool) -> None:
+        if not result:
+            self.nps_status.setText("服务器未返回 NPS 主机信息")
+            return
+        self.refresh()
+        public_address = str(result.get("public_address") or "").strip()
+        created = "已创建" if result.get("created") else "已复用"
+        message = f"NPC 自动配置完成（{created} NPS 主机 {result.get('name', '')}）"
+        if public_address:
+            message += f"，公网 RDP：{public_address}"
+            self.host_domain_edit.setText(public_address)
+        self.nps_status.setText(message)
+        if notify:
+            self._info(message, "NPC 已配置")
+
+    def _on_auto_configure_failed(self, message: str) -> None:
+        self.nps_status.setText(f"自动配置失败：{message}")
+        self._error(message, "自动配置失败")
+        self.refresh()
 
     def _on_install_failed(self, message: str) -> None:
         self._error(message, "安装失败")
@@ -431,11 +486,15 @@ class NpcSettingsPanel(QWidget):
 
     def _set_busy(self, busy: bool) -> None:
         self.install_button.setEnabled(not busy)
+        self.auto_button.setEnabled(not busy and self.ctx.online)
+        self.auto_button.setText("自动配置中..." if busy else "一键自动配置 NPC")
         self.config_box.setEnabled(not busy)
         if busy:
             self.nps_status.setText("正在请求管理员权限/执行操作...")
 
     def _set_idle(self) -> None:
+        self.auto_button.setEnabled(self.ctx.online)
+        self.auto_button.setText("一键自动配置 NPC")
         self.refresh()
 
     def _info(self, message: str, title: str = "操作成功") -> None:

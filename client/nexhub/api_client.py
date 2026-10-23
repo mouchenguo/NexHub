@@ -143,6 +143,10 @@ class ApiClient:
     def create_nps_tunnel(self, payload: dict) -> dict:
         return self._request("POST", "/api/tunnels", json=payload)
 
+    def auto_nps_tunnel(self, payload: dict) -> dict:
+        """幂等申请本机 NPS 主机与 TCP 隧道。"""
+        return self._request("POST", "/api/tunnels/auto", json=payload, timeout=25)
+
     def update_nps_tunnel(self, tunnel_id: int, payload: dict) -> dict:
         return self._request("PATCH", f"/api/tunnels/{tunnel_id}", json=payload)
 

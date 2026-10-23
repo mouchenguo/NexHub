@@ -108,6 +108,8 @@ def main() -> int:
     print("nps tunnel panel:", bool(getattr(window._pages.get("settings"), "nps_tunnel_panel", None)))
     settings_page = window._pages.get("settings")
     print("settings folder rows:", len(settings_page._folders) if settings_page else 0)
+    if settings_page:
+        print("npc auto config button:", settings_page.npc_panel.auto_button.text())
     print("embedded:", ctx.embedded.running)
 
     from nexhub.views.my_shares import CreateShareDialog

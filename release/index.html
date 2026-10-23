@@ -163,7 +163,7 @@
           <div class="card"><div class="icon">◈</div><h3>文件共享</h3><p>按文件或文件夹发布共享，支持临时穿透与 OSS 长期缓存，生成可访问的分享链接。</p></div>
           <div class="card"><div class="icon">◍</div><h3>RDP 主机</h3><p>保存常用 Windows 远程桌面连接，使用系统原生 mstsc，密码本地加密保存。</p></div>
           <div class="card"><div class="icon">⌁</div><h3>同账号在线设备</h3><p>同一账号的电脑自动上报在线状态，在其他设备上直接发现并连接。</p></div>
-          <div class="card"><div class="icon">↗</div><h3>NPS 内网穿透</h3><p>云端管理 NPS 隧道，支持临时共享和 RDP 主机的 TCP 映射与自动注册。</p></div>
+          <div class="card"><div class="icon">↗</div><h3>NPS 内网穿透</h3><p>一键自动配置 NPC：服务器创建主机与隧道，客户端写入配置并重启服务。</p></div>
           <div class="card"><div class="icon">✦</div><h3>插件工具箱</h3><p>内置内存优化等工具，支持生成自定义插件模板，保存后即时加载。</p></div>
           <div class="card"><div class="icon">◎</div><h3>注册与审核</h3><p>客户端内直接注册，服务端默认自动审核；也可切换人工审核并在后台通过或拒绝。</p></div>
           <div class="card"><div class="icon">◐</div><h3>轻量本地数据</h3><p>配置保存在本机，登录凭证加密存储；关闭窗口后可通过托盘继续运行。</p></div>
@@ -184,10 +184,10 @@
           <div class="card" id="notes">
             <div class="eyebrow">Release Notes</div><h2 style="font-size:24px;margin-bottom:16px">v0.1.0-beta</h2>
             <ul class="changelog">
-              <li>新增客户端注册与登录切换，注册后可直接进入工作台。</li>
-              <li>服务端默认自动审核注册，可切换人工审核并在后台通过或拒绝。</li>
-              <li>管理后台新增注册审核状态、待审核提示与通过/拒绝操作。</li>
-              <li>服务端自动迁移 users.status，现有账号与密码保持不变。</li>
+              <li>新增 NPC 一键自动配置：服务器自动创建/修复 NPS 主机与 TCP 隧道。</li>
+              <li>客户端自动安装 NPC、写入 npc.conf、重启服务并显示公网 RDP 地址。</li>
+              <li>NPS 客户端或隧道丢失时自动重建，已有 vkey 可幂等复用。</li>
+              <li>保留注册自动审核、管理后台审核和现有账号密码。</li>
               <li>Release 客户端资产只保留一个 NexHub-v0.1.0-beta.exe。</li>
             </ul>
           </div>

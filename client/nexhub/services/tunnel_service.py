@@ -62,36 +62,37 @@ class TunnelService:
             name=name, local_host=local_host, local_port=int(local_port)
         )
 
-    def ensure_local_tunnel(self, local_port: int = 3389) -> dict | None:
-        """新设备登录/安装 NPC 后自动确保该设备在 NPS 中有独立主机。
-
-        以设备名作为隧道名，已存在时不重复创建；若本机 vkey 与记录不一致，
-        则重新下发该记录对应的 vkey。
-        """
+    def ensure_local_tunnel(self, local_port: int = 3389, force: bool = False) -> dict | None:
+        """安装/启动后确保当前设备在 NPS 中有主机、隧道和可用 NPC 配置。"""
         if not self.online:
             return None
-        device_name = (self.config.device_name or socket.gethostname() or "Windows PC").strip()
+        return self.auto_configure_local(local_port, force=force)
+
+    def auto_configure_local(self, local_port: int = 3389, force: bool = False) -> dict:
+        """一键自动配置：服务端幂等创建 NPS 主机/隧道，本机写入 npc.conf 并重启 NPC。"""
+        if not self.online:
+            raise RuntimeError("请先登录后再自动配置 NPC")
+        device_name = (
+            self.config.device_name or socket.gethostname() or "Windows PC"
+        ).strip()
         tunnel_name = f"RDP-{device_name}"[:64]
-        rows = self.list_tunnels()
-        existing = next(
-            (
-                row
-                for row in rows
-                if str(row.get("name") or "") == tunnel_name
-                and int(row.get("local_port") or 0) == int(local_port)
-            ),
-            None,
+        response = self.api.auto_nps_tunnel(
+            {
+                "name": tunnel_name,
+                "local_host": "127.0.0.1",
+                "local_port": int(local_port),
+                "rdp_task": True,
+            }
         )
-        if existing:
-            if self.config.nps.vkey != str(existing.get("vkey") or ""):
-                self.apply_tunnel(existing)
-            if existing.get("public_address"):
-                self.config.nps.host_domain = str(existing["public_address"]).strip()
-                self.config.save()
-            return existing
-        return self.create_tunnel(
-            tunnel_name, "127.0.0.1", int(local_port), rdp_task=True
-        )
+        tunnel = response.get("tunnel") if isinstance(response, dict) else None
+        if not isinstance(tunnel, dict) or not tunnel.get("vkey"):
+            raise RuntimeError("服务端未返回可用的 NPS 主机配置")
+        local = self.apply_tunnel(tunnel, force=force)
+        result = dict(tunnel)
+        result["created"] = bool(response.get("created"))
+        result["local"] = local
+        result["npc"] = local.get("status", {})
+        return result
 
     def update_tunnel(
         self, tunnel: dict, name: str, local_host: str, local_port: int
@@ -123,8 +124,8 @@ class TunnelService:
         return self.demo.delete_nps_tunnel(int(tunnel["id"]))
 
     # ------------------------------------------------------------------
-    def apply_tunnel(self, tunnel: dict) -> dict[str, Any]:
-        """将隧道 vkey 写入本机 npc.conf，并重启 NPC。"""
+    def apply_tunnel(self, tunnel: dict, force: bool = True) -> dict[str, Any]:
+        """将隧道 vkey 写入本机 npc.conf，并确保 NPC 正在运行。"""
         if not self.online:
             return {"demo": True, "message": "离线体验不会写入本机 npc.conf"}
         server_addr = str(tunnel.get("server_addr") or "").strip()
@@ -132,12 +133,42 @@ class TunnelService:
         vkey = str(tunnel.get("vkey") or "").strip()
         if not server_addr or not vkey:
             raise ValueError("隧道缺少 NPS 地址或 vkey")
-        if not self.npc.status().get("installed"):
-            self.npc.install()
-        # 旧 vkey 必须在写文件前停止，否则 NPS 会看到旧客户端仍在线。
-        self.npc.apply_config(f"{server_addr}:{server_port}", vkey)
+        target_server = f"{server_addr}:{server_port}"
+
+        status = self.npc.status()
+        if not status.get("installed") or not status.get("service_installed"):
+            # 未安装或缺少开机自启服务时，先解压内置资源/注册服务（可能触发 UAC）。
+            status = self.npc.install()
+        if not status.get("installed"):
+            raise RuntimeError("NPC 安装失败，未找到 npc.exe")
+
+        current = self.npc.read_config() if status.get("config_exists") else {}
+        already_configured = (
+            current.get("server_addr") == target_server
+            and current.get("vkey") == vkey
+            and bool(status.get("running"))
+        )
+        changed = False
+        if force or not already_configured:
+            # 旧 vkey 必须在写文件前停止，否则 NPS 会看到旧客户端仍在线。
+            self.npc.apply_config(target_server, vkey)
+            changed = True
+
+        status = self.npc.status()
+        if not status.get("running"):
+            raise RuntimeError(
+                "npc.conf 已写入，但 NPC 服务未运行。请检查管理员授权或 Npc 服务日志。"
+            )
+        if tunnel.get("public_address"):
+            self.config.nps.host_domain = str(tunnel["public_address"]).strip()
         self._remember_local_config(server_addr, server_port, vkey)
-        return {"path": self.npc.status().get("config_path", "")}
+        return {
+            "changed": changed,
+            "path": status.get("config_path", ""),
+            "status": status,
+            "server_addr": target_server,
+            "vkey": vkey,
+        }
 
     def restart_npc(self) -> dict:
         if not self.online:

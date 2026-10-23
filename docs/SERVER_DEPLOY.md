@@ -587,6 +587,8 @@ NPC 保存的是 `C:\Program Files\npc\conf\npc.conf` 中 `[common]` 的 `server
 
 不要填写内部端口 `8000`，除非你明确在用本机/内网直连。保存后点击左下角「请登录」，在居中的内嵌面板中登录或注册；登录面板也可以直接配置 IP、端口和 HTTP/HTTPS。默认自动审核通过，关闭自动审核后需管理员在 `/admin/users` 中通过注册申请。
 
+登录后打开「设置 → NPC 与内网穿透」，点击「一键自动配置 NPC」：客户端会请求 ECS 创建/复用当前设备的 NPS 客户端和 TCP 隧道，自动安装 NPC、写入本机 `npc.conf`、重启 NPC 服务，并在界面显示分配到的公网 RDP 地址。首次操作需要 Windows 管理员授权。
+
 验证顺序：
 
 1. 浏览器打开 `https://hub.example.com/api/health`，确认返回 `status: ok`；
