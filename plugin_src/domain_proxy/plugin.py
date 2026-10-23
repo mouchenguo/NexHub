@@ -827,6 +827,67 @@ class WhitelistDialog(QDialog):
         self.accept()
 
 
+class ProxyController:
+    """供 NexHub 主界面卡片直接控制代理和选择节点。"""
+
+    def __init__(self, context, window: ProxyWindow):
+        self.context = context
+        self.window = window
+
+    def state(self) -> dict:
+        nodes = self.window.data.get("nodes") or []
+        return {
+            "enabled": bool(self.window._proc and self.window._proc.poll() is None),
+            "node": str(self.window.data.get("selected") or ""),
+            "nodes": [
+                {
+                    "name": str(item.get("name") or ""),
+                    "latency": item.get("latency"),
+                    "type": str(item.get("type") or ""),
+                }
+                for item in nodes
+                if item.get("name")
+            ],
+            "port": int(self.window.data.get("port") or DEFAULT_PORT),
+        }
+
+    def _sync_switch(self, checked: bool) -> None:
+        self.window.switch.blockSignals(True)
+        self.window.switch.setChecked(bool(checked))
+        self.window.switch.blockSignals(False)
+
+    def invoke(self, action: str, payload: dict) -> dict:
+        if action == "enabled":
+            enabled = bool(payload.get("value"))
+            if enabled:
+                self.window._start_service()
+            else:
+                self.window._stop_service(update_switch=False)
+            self._sync_switch(enabled and bool(self.window._proc))
+            return {"state": self.state()}
+        if action == "node":
+            name = str(payload.get("value") or "").strip()
+            nodes = self.window.data.get("nodes") or []
+            if name and not any(str(item.get("name") or "") == name for item in nodes):
+                raise ValueError("节点不存在")
+            if name:
+                was_running = bool(self.window._proc and self.window._proc.poll() is None)
+                self.window.data["selected"] = name
+                self.window._save_data()
+                self.window._load_tables()
+                self.window._update_preview()
+                if was_running:
+                    self.window._stop_service(update_switch=False)
+                    self.window._start_service()
+                    self._sync_switch(bool(self.window._proc))
+            return {"state": self.state()}
+        raise ValueError(f"不支持的操作：{action}")
+
+
+def create_controller(context, window):
+    return ProxyController(context, window)
+
+
 def create_window(context):
     return ProxyWindow(context)
 

@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QApplication, QDialog, QHBoxLayout, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QApplication, QDialog, QHBoxLayout, QInputDialog, QVBoxLayout, QWidget
 from qfluentwidgets import (
     BodyLabel,
     CaptionLabel,
+    ComboBox,
     FluentIcon as FIF,
     FluentStyleSheet,
     LineEdit,
@@ -127,7 +128,9 @@ class NpsTunnelPanel(QWidget):
         self._list_worker: FunctionWorker | None = None
         self._action_worker: FunctionWorker | None = None
         self._status_worker: FunctionWorker | None = None
+        self._host_worker: FunctionWorker | None = None
         self._tunnels: list[dict] = []
+        self._hosts: list[dict] = []
         self._build()
         self.refresh_npc_status()
 
@@ -171,6 +174,18 @@ class NpsTunnelPanel(QWidget):
         self.demo_note.setVisible(not self.ctx.online)
         layout.addWidget(self.demo_note)
 
+        host_row = QHBoxLayout()
+        host_row.setSpacing(8)
+        self.host_combo = ComboBox()
+        self.host_combo.setMinimumWidth(240)
+        host_row.addLayout(form_field("NPS 主机（客户端）", self.host_combo), 2)
+        self.create_host_button = make_button(
+            "新建主机", transparent=True, icon=FIF.ADD, on_click=self._create_host
+        )
+        host_row.addWidget(self.create_host_button, 0, Qt.AlignmentFlag.AlignBottom)
+        host_row.addStretch(1)
+        layout.addLayout(host_row)
+
         form_row = QHBoxLayout()
         form_row.setSpacing(12)
         self.name_edit = LineEdit()
@@ -194,7 +209,7 @@ class NpsTunnelPanel(QWidget):
         layout.addLayout(form_row)
 
         hint = CaptionLabel(
-            "提交后由 ECS 调用 NPS API 创建客户端并生成唯一 vkey；"
+            "主机对应 NPS 客户端和唯一 vkey；隧道只会挂到选中的主机下，不会重复创建主机。"
             "本机 NPC 需要管理员权限，首次下发会弹出 UAC。"
         )
         hint.setWordWrap(True)
@@ -222,10 +237,16 @@ class NpsTunnelPanel(QWidget):
             outer.addWidget(card)
 
     # ------------------------------------------------------------------
+    def _load_panel_data(self) -> dict:
+        return {
+            "hosts": self.ctx.tunnels.list_hosts(),
+            "tunnels": self.ctx.tunnels.list_tunnels(),
+        }
+
     def refresh(self) -> None:
         if self._list_worker and self._list_worker.isRunning():
             return
-        self._list_worker = FunctionWorker(self.ctx.tunnels.list_tunnels, parent=self)
+        self._list_worker = FunctionWorker(self._load_panel_data, parent=self)
         self._list_worker.succeeded.connect(self._on_loaded)
         self._list_worker.failed.connect(self._on_load_failed)
         self._list_worker.start()
@@ -258,11 +279,55 @@ class NpsTunnelPanel(QWidget):
         self.summary.setText(f"NPS 隧道加载失败：{message}")
         self.ctx.notify(f"隧道列表加载失败：{message}", "error")
 
-    def _on_loaded(self, tunnels: list[dict]) -> None:
-        self._tunnels = tunnels
+    def _on_loaded(self, payload: dict) -> None:
+        self._tunnels = list(payload.get("tunnels") or [])
+        self._hosts = list(payload.get("hosts") or [])
+        self._render_hosts()
         self._render()
 
+    def _render_hosts(self) -> None:
+        current = self.host_combo.currentData()
+        self.host_combo.blockSignals(True)
+        self.host_combo.clear()
+        for host in self._hosts:
+            self.host_combo.addItem(
+                f"{host.get('name') or 'NPS 主机'} · #{host.get('nps_client_id') or '--'}",
+                userData=host.get("id"),
+            )
+        if self._hosts:
+            index = self.host_combo.findData(current)
+            self.host_combo.setCurrentIndex(index if index >= 0 else 0)
+        else:
+            self.host_combo.addItem("尚未创建主机", userData=None)
+        self.host_combo.blockSignals(False)
+        self.create_button.setEnabled(bool(self._hosts))
+
     # ------------------------------------------------------------------
+    def _create_host(self) -> None:
+        if self._host_worker and self._host_worker.isRunning():
+            return
+        name, accepted = QInputDialog.getText(self, "新建 NPS 主机", "主机名称（例如：书房电脑）")
+        name = (name or "").strip()
+        if not accepted:
+            return
+        if not name:
+            self.ctx.notify("主机名称不能为空", "warning")
+            return
+        self.create_host_button.setEnabled(False)
+        self._host_worker = FunctionWorker(self.ctx.tunnels.create_host, name, parent=self)
+        self._host_worker.succeeded.connect(self._on_host_created)
+        self._host_worker.failed.connect(
+            lambda message: self.ctx.notify(f"创建 NPS 主机失败：{message}", "error")
+        )
+        self._host_worker.finished.connect(
+            lambda: self.create_host_button.setEnabled(True)
+        )
+        self._host_worker.start()
+
+    def _on_host_created(self, _host: dict) -> None:
+        self.ctx.notify("NPS 主机已创建，隧道会复用该主机的 vkey", "success")
+        self.refresh()
+
     def _create(self) -> None:
         if self._action_worker and self._action_worker.isRunning():
             return
@@ -271,6 +336,10 @@ class NpsTunnelPanel(QWidget):
         if not name or not host:
             self.ctx.notify("请填写隧道名称和本地服务 IP", "warning")
             return
+        host_id = self.host_combo.currentData()
+        if not host_id:
+            self.ctx.notify("请先创建一个 NPS 主机", "warning")
+            return
         self.create_button.setEnabled(False)
         self.create_button.setText("创建中...")
         self._action_worker = FunctionWorker(
@@ -278,6 +347,8 @@ class NpsTunnelPanel(QWidget):
             name,
             host,
             self.port_spin.value(),
+            False,
+            int(host_id),
             parent=self,
         )
         self._action_worker.succeeded.connect(self._on_created)
@@ -291,11 +362,11 @@ class NpsTunnelPanel(QWidget):
         elif tunnel.get("local_error"):
             local_error = tunnel.get("local_error")
             self.ctx.notify(
-                f"NPS 客户端已创建，但本机 NPC 配置下发失败：{local_error}",
+                f"TCP 隧道已创建，但本机 NPC 配置下发失败：{local_error}",
                 "warning",
             )
         else:
-            self.ctx.notify("NPS 隧道已创建，vkey 已下发到本机 NPC", "success")
+            self.ctx.notify("TCP 隧道已创建，主机 vkey 已下发到本机 NPC", "success")
         self.name_edit.clear()
         self.refresh()
         self.refresh_npc_status()
@@ -364,7 +435,7 @@ class NpsTunnelPanel(QWidget):
             self,
             "删除 NPS 隧道",
             f"确定删除隧道「{tunnel.get('name')}」？\n"
-            "这会同时删除 NPS 服务端对应客户端，当前本机 npc.conf 不会自动清空。",
+            "只会删除这条 TCP 隧道，不会删除共享主机或其他隧道。",
         ):
             return
         if self._action_worker and self._action_worker.isRunning():
@@ -468,8 +539,8 @@ class NpsTunnelPanel(QWidget):
         vkey = str(tunnel.get("vkey") or "")
         masked_vkey = f"{vkey[:8]}…{vkey[-4:]}" if len(vkey) > 14 else vkey or "--"
         detail = CaptionLabel(
-            f"本地服务 {local} · NPS {server} · 客户端 #{tunnel.get('nps_client_id') or '--'} · "
-            f"vkey {masked_vkey}"
+            f"本地服务 {local} · NPS {server} · 主机 #{tunnel.get('host_id') or '--'} · "
+            f"客户端 #{tunnel.get('nps_client_id') or '--'} · vkey {masked_vkey}"
         )
         detail.setWordWrap(True)
         detail.setToolTip(f"vkey: {vkey}" if vkey else "")

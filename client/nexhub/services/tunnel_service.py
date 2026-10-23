@@ -27,13 +27,31 @@ class TunnelService:
     def online(self) -> bool:
         return not self.config.demo_mode
 
+    def list_hosts(self) -> list[dict]:
+        if self.online:
+            return self.api.list_nps_hosts()
+        return []
+
+    def create_host(self, name: str) -> dict:
+        if not self.online:
+            raise RuntimeError("离线体验模式不能创建 NPS 主机")
+        name = name.strip()
+        if not name:
+            raise ValueError("请填写主机名称")
+        return self.api.create_nps_host({"name": name})
+
     def list_tunnels(self) -> list[dict]:
         if self.online:
             return self.api.list_nps_tunnels()
         return self.demo.list_nps_tunnels()
 
     def create_tunnel(
-        self, name: str, local_host: str, local_port: int, rdp_task: bool = False
+        self,
+        name: str,
+        local_host: str,
+        local_port: int,
+        rdp_task: bool = False,
+        host_id: int | None = None,
     ) -> dict:
         name = name.strip()
         local_host = local_host.strip()
@@ -48,6 +66,7 @@ class TunnelService:
                     "local_host": local_host,
                     "local_port": int(local_port),
                     "rdp_task": bool(rdp_task),
+                    "host_id": int(host_id) if host_id else None,
                 }
             )
             try:
@@ -80,6 +99,7 @@ class TunnelService:
             response = self.api.auto_nps_tunnel(
                 {
                     "name": tunnel_name,
+                    "host_name": f"Host-{device_name}"[:80],
                     "local_host": "127.0.0.1",
                     "local_port": int(local_port),
                     "rdp_task": True,

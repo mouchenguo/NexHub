@@ -6,6 +6,7 @@ import json
 import logging
 import sys
 import threading
+import uuid
 from pathlib import Path
 
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
@@ -46,7 +47,7 @@ def _load_plugin_module(plugin_dir: Path):
     factory = getattr(module, "create_window", None)
     if not callable(factory):
         raise AttributeError("plugin.py 必须提供 create_window(context)")
-    return factory
+    return factory, module
 
 
 def run_plugin_host(plugin_dir: Path, theme: str = "dark", hidden: bool = False) -> int:
@@ -75,8 +76,9 @@ def run_plugin_host(plugin_dir: Path, theme: str = "dark", hidden: bool = False)
     setTheme(Theme.DARK if theme != "light" else Theme.LIGHT, save=False)
     setThemeColor(ACCENT_COLOR, save=False)
 
+    controller = None
     try:
-        factory = _load_plugin_module(plugin_dir)
+        factory, module = _load_plugin_module(plugin_dir)
         content = factory(context)
         if isinstance(content, QMainWindow):
             window = content
@@ -86,6 +88,10 @@ def run_plugin_host(plugin_dir: Path, theme: str = "dark", hidden: bool = False)
             window.setWindowTitle(f"{name} · NexHub 插件")
         else:
             raise TypeError("create_window(context) 必须返回 QWidget 或 QMainWindow")
+        controller_factory = getattr(module, "create_controller", None)
+        if callable(controller_factory):
+            # 传入插件实际 QWidget，而不是外层 QMainWindow 包装。
+            controller = controller_factory(context, content)
     except Exception as exc:  # noqa: BLE001
         context.logger.exception("插件加载失败")
         box = QMessageBox()
@@ -122,6 +128,58 @@ def run_plugin_host(plugin_dir: Path, theme: str = "dark", hidden: bool = False)
     bridge.show_received.connect(show_window)
     bridge.shutdown_received.connect(request_shutdown)
     app.aboutToQuit.connect(context.cleanup)
+
+    # 主程序通过共享数据目录发送快捷操作请求；控制请求在主线程执行，
+    # 避免从工作线程直接操作插件 QWidget。
+    control_root = context.data_dir / "control"
+    request_dir = control_root / "requests"
+    response_dir = control_root / "responses"
+    request_dir.mkdir(parents=True, exist_ok=True)
+    response_dir.mkdir(parents=True, exist_ok=True)
+    state_path = control_root / "state.json"
+
+    def write_json(path: Path, data: object) -> None:
+        temp = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+        temp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        temp.replace(path)
+
+    def publish_state() -> None:
+        if controller is None:
+            return
+        try:
+            write_json(state_path, controller.state())
+        except Exception:  # noqa: BLE001
+            context.logger.exception("插件状态写入失败")
+
+    def process_control_requests() -> None:
+        for request_path in sorted(request_dir.glob("*.json")):
+            request_id = request_path.stem
+            try:
+                request = json.loads(request_path.read_text(encoding="utf-8"))
+                action = str(request.get("action") or "")
+                payload = request.get("payload") or {}
+                if controller is None:
+                    raise RuntimeError("插件未提供快捷操作控制器")
+                if action == "state":
+                    result = controller.state()
+                else:
+                    result = controller.invoke(action, payload)
+                response = {"id": request_id, "ok": True, "data": result}
+            except Exception as exc:  # noqa: BLE001
+                context.logger.exception("插件快捷操作失败")
+                response = {"id": request_id, "ok": False, "error": str(exc)}
+            try:
+                write_json(response_dir / f"{request_id}.json", response)
+            except Exception:  # noqa: BLE001
+                context.logger.exception("插件快捷操作响应写入失败")
+            finally:
+                request_path.unlink(missing_ok=True)
+                publish_state()
+
+    publish_state()
+    control_timer = QTimer()
+    control_timer.timeout.connect(process_control_requests)
+    control_timer.start(100)
 
     def watch_stdin() -> None:
         try:

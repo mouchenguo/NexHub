@@ -130,15 +130,15 @@
     <main>
       <section class="hero">
         <div>
-          <div class="badge"><span class="dot"></span> v0.1.4-beta 预发行</div>
+          <div class="badge"><span class="dot"></span> v0.1.5-beta 预发行</div>
           <h1>把文件与远程桌面<br><span>放进同一个工作台</span></h1>
           <p class="lead">NexHub 是面向 Windows 的共享与远程主机客户端：文件共享、OSS 长期缓存、临时穿透、RDP 主机、同账号在线设备和 NPS 隧道集中管理。</p>
           <div class="actions" id="download">
-            <a class="btn btn-primary" href="NexHub-v0.1.4-beta.exe" download>↓ 下载 Windows 客户端</a>
+            <a class="btn btn-primary" href="NexHub-v0.1.5-beta.exe" download>↓ 下载 Windows 客户端</a>
             <a class="btn btn-ghost" href="NexHub-Server-Deploy.zip">服务端一键部署包</a>
             <a class="btn btn-ghost" href="latest.json">查看更新信息</a>
           </div>
-          <div class="meta">Windows 10 / 11 · 单文件安装包 · 当前预发行版 v0.1.4-beta</div>
+          <div class="meta">Windows 10 / 11 · 单文件安装包 · 当前预发行版 v0.1.5-beta</div>
         </div>
         <div class="preview" aria-hidden="true">
           <div class="preview-inner">
@@ -184,12 +184,13 @@
             </ul>
           </div>
           <div class="card" id="notes">
-            <div class="eyebrow">Release Notes</div><h2 style="font-size:24px;margin-bottom:16px">v0.1.4-beta</h2>
+            <div class="eyebrow">Release Notes</div><h2 style="font-size:24px;margin-bottom:16px">v0.1.5-beta</h2>
             <ul class="changelog">
-              <li>工具箱插件改为开关启用：宿主进程在后台运行，不再自动弹出插件窗口。</li>
-              <li>点击“配置”才打开插件配置窗口；关闭窗口只隐藏，关闭开关才停止宿主。</li>
-              <li>启用状态会保存，下次启动自动在后台恢复插件。</li>
-              <li>新增插件广场、独立宿主进程和插件审核系统。</li>
+              <li>工具箱插件支持快捷操作：内存优化可直接点击“优化内存”，代理可直接启用/停用并选择节点。</li>
+              <li>插件继续在独立宿主进程运行，快捷操作通过宿主控制通道执行，不把插件代码导入主程序。</li>
+              <li>NPS 客户端（主机）与 TCP 隧道拆分：创建隧道不再重复创建主机，删除隧道不会再删除共享 vkey。</li>
+              <li>隧道管理新增主机列表和“新建主机”入口；旧隧道自动迁移为可复用主机记录。</li>
+              <li>插件后台运行/配置窗口开关、插件广场和审核系统继续保留。</li>
             </ul>
           </div>
         </div>
@@ -197,7 +198,7 @@
     </main>
 
     <footer>
-      <span>NexHub v0.1.4-beta · 文件共享与远程主机 · <a href="https://github.com/mouchenguo/NexHub" target="_blank" rel="noreferrer">GitHub</a></span>
+      <span>NexHub v0.1.5-beta · 文件共享与远程主机 · <a href="https://github.com/mouchenguo/NexHub" target="_blank" rel="noreferrer">GitHub</a></span>
       <span>更新清单：<a href="latest.json"><code>latest.json</code></a></span>
     </footer>
   </div>

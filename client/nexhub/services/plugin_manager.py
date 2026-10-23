@@ -56,6 +56,18 @@ class PluginRecord:
     def entry(self) -> Path:
         return self.folder / "plugin.py"
 
+    @property
+    def controls(self) -> list[dict]:
+        """manifest 声明的快捷控件；插件实现 create_controller 后生效。"""
+        raw = self.manifest.get("controls") if isinstance(self.manifest, dict) else None
+        if not isinstance(raw, list):
+            return []
+        return [
+            item
+            for item in raw
+            if isinstance(item, dict) and str(item.get("id") or "").strip()
+        ]
+
     @classmethod
     def from_folder(cls, folder: Path) -> "PluginRecord":
         manifest_path = folder / "manifest.json"

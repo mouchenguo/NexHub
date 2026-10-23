@@ -113,7 +113,7 @@ class SettingsPage(BasePage):
         self._folder_detail.back_requested.connect(self._close_folder)
         self._tunnel_detail = FolderDetail(
             "隧道管理",
-            "每台内网主机自动创建独立 NPS 客户端与 vkey",
+            "先创建 NPS 主机，再在主机下创建多条 TCP 隧道",
         )
         self._tunnel_detail.set_content(self.nps_tunnel_panel)
         self._tunnel_detail.back_requested.connect(self._close_tunnel_detail)
@@ -382,7 +382,7 @@ class SettingsPage(BasePage):
         self.tunnel_entry = FolderRow(
             FIF.CONNECT,
             "隧道管理",
-            "每台内网主机自动创建独立 NPS 客户端与 vkey",
+            "先创建 NPS 主机，再在主机下创建多条 TCP 隧道",
         )
         self.tunnel_entry.clicked.connect(self._open_tunnel_detail)
         layout.addWidget(self.tunnel_entry)

@@ -1,7 +1,11 @@
 {
   "id": "domain_proxy",
   "name": "域名定向加速",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "仅让白名单域名通过本地代理转发，其他流量直连；不修改系统代理。",
-  "requirements": "requests>=2.31"
+  "requirements": "requests>=2.31",
+  "controls": [
+    {"id": "enabled", "type": "switch", "label": "启用代理"},
+    {"id": "node", "type": "select", "label": "节点", "options": "nodes"}
+  ]
 }

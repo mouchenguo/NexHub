@@ -128,5 +128,33 @@ class MemoryWindow(QWidget):
         self.optimize_button.setText("立即优化")
 
 
+class MemoryController:
+    """供 NexHub 主界面卡片直接调用的轻量控制器。"""
+
+    def __init__(self, context, window: MemoryWindow):
+        self.context = context
+        self.window = window
+        self.optimizer = window.optimizer
+
+    def state(self) -> dict:
+        try:
+            stats = self.optimizer.stats()
+        except Exception as exc:  # noqa: BLE001
+            return {"error": str(exc)}
+        return {"stats": stats, "percent": int(stats.get("percent") or 0)}
+
+    def invoke(self, action: str, payload: dict) -> dict:
+        if action != "optimize":
+            raise ValueError(f"不支持的操作：{action}")
+        result = self.optimizer.optimize()
+        self.window.refresh_stats()
+        self.context.log("memory optimize completed from NexHub quick action")
+        return {"result": result, "state": self.state()}
+
+
+def create_controller(context, window):
+    return MemoryController(context, window)
+
+
 def create_window(context):
     return MemoryWindow(context)

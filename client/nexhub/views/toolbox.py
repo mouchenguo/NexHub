@@ -59,6 +59,9 @@ class ToolboxPage(BasePage):
         self._market_loaded = False
         self._market_source = ""
         self._install_dialog: PluginInstallDialog | None = None
+        self._plugin_states: dict[str, dict] = {}
+        self._state_workers: dict[str, FunctionWorker] = {}
+        self._quick_workers: dict[str, FunctionWorker] = {}
         super().__init__(ctx, parent)
         self.ctx.plugin_processes.changed.connect(self._render_installed)
 
@@ -217,14 +220,72 @@ class ToolboxPage(BasePage):
         top.addLayout(info, 1)
         actions = QHBoxLayout()
         actions.setSpacing(8)
-        switch_label = CaptionLabel("启用")
-        actions.addWidget(switch_label)
-        switch = SwitchButton()
-        switch.setChecked(running)
-        switch.checkedChanged.connect(
-            lambda checked, current=record: self._toggle_plugin(current, checked)
-        )
-        actions.addWidget(switch)
+        controls = record.controls
+        state = self._plugin_states.get(record.plugin_id, {}) if running else {}
+        if controls:
+            if running and record.plugin_id not in self._plugin_states:
+                self._refresh_plugin_state(record)
+            for control in controls:
+                kind = str(control.get("type") or "button")
+                control_id = str(control.get("id") or "")
+                label = str(control.get("label") or control_id)
+                if kind == "button":
+                    actions.addWidget(
+                        make_button(
+                            label,
+                            primary=bool(control.get("primary", True)),
+                            icon=FIF.PLAY,
+                            on_click=lambda _checked=False, current=record, action=control_id: self._quick_action(
+                                current, action, {}
+                            ),
+                        )
+                    )
+                elif kind == "switch":
+                    actions.addWidget(CaptionLabel(label))
+                    toggle = SwitchButton()
+                    toggle.setChecked(bool(state.get(control_id, False)))
+                    toggle.checkedChanged.connect(
+                        lambda checked, current=record, action=control_id: self._quick_action(
+                            current, action, {"value": bool(checked)}
+                        )
+                    )
+                    actions.addWidget(toggle)
+                elif kind == "select":
+                    actions.addWidget(CaptionLabel(label))
+                    selector = ComboBox()
+                    options = state.get(str(control.get("options") or "")) or []
+                    names = [
+                        str(item.get("name"))
+                        for item in options
+                        if isinstance(item, dict) and item.get("name")
+                    ]
+                    if not names:
+                        selector.addItem("启用后加载节点")
+                        selector.setEnabled(False)
+                    else:
+                        selector.addItems(names)
+                        current_name = str(state.get(control_id) or "")
+                        index = selector.findText(current_name)
+                        if index >= 0:
+                            selector.setCurrentIndex(index)
+                        selector.currentTextChanged.connect(
+                            lambda name, current=record, action=control_id: self._quick_action(
+                                current, action, {"value": name}
+                            )
+                            if name != "启用后加载节点"
+                            else None
+                        )
+                    selector.setMinimumWidth(150)
+                    actions.addWidget(selector)
+        else:
+            switch_label = CaptionLabel("启用")
+            actions.addWidget(switch_label)
+            switch = SwitchButton()
+            switch.setChecked(running)
+            switch.checkedChanged.connect(
+                lambda checked, current=record: self._toggle_plugin(current, checked)
+            )
+            actions.addWidget(switch)
         actions.addWidget(
             make_button(
                 "配置",
@@ -244,6 +305,91 @@ class ToolboxPage(BasePage):
         top.addLayout(actions)
         layout.addLayout(top)
         return card
+
+    def _refresh_plugin_state(self, record: PluginRecord) -> None:
+        plugin_id = record.plugin_id
+        if plugin_id in self._plugin_states or plugin_id in self._state_workers:
+            return
+        if not self.ctx.plugin_processes.is_running(plugin_id):
+            return
+        worker = FunctionWorker(
+            lambda: self.ctx.plugin_processes.request(plugin_id, "state", {}),
+            parent=self,
+        )
+        self._state_workers[plugin_id] = worker
+
+        def done(data) -> None:
+            self._plugin_states[plugin_id] = data if isinstance(data, dict) else {}
+            self._state_workers.pop(plugin_id, None)
+            self._render_installed()
+
+        def failed(message: str) -> None:
+            self._plugin_states[plugin_id] = {}
+            self._state_workers.pop(plugin_id, None)
+            self.ctx.notify(f"插件「{record.name}」状态读取失败：{message}", "warning")
+
+        worker.succeeded.connect(done)
+        worker.failed.connect(failed)
+        worker.start()
+
+    def _quick_action(
+        self,
+        record: PluginRecord,
+        action: str,
+        payload: dict,
+    ) -> None:
+        plugin_id = record.plugin_id
+        if plugin_id in self._quick_workers:
+            return
+        try:
+            if not self.ctx.plugin_processes.is_running(plugin_id):
+                self.ctx.plugin_processes.start(record, hidden=True)
+                self._set_active(record, True)
+        except Exception as exc:  # noqa: BLE001
+            self.ctx.notify(f"插件启动失败：{exc}", "error")
+            self._render_installed()
+            return
+
+        worker = FunctionWorker(
+            lambda: self.ctx.plugin_processes.request(
+                plugin_id,
+                action,
+                payload,
+                120.0 if action == "optimize" else 30.0,
+            ),
+            parent=self,
+        )
+        self._quick_workers[plugin_id] = worker
+
+        def succeeded(data) -> None:
+            self._quick_workers.pop(plugin_id, None)
+            state = data.get("state") if isinstance(data, dict) else None
+            if isinstance(state, dict):
+                self._plugin_states[plugin_id] = state
+            self._render_installed()
+            if action == "optimize":
+                self.ctx.notify(f"插件「{record.name}」操作已完成", "success")
+            elif action == "enabled":
+                requested = bool(payload.get("value"))
+                actual = bool(state.get("enabled")) if isinstance(state, dict) else requested
+                if requested and not actual:
+                    self.ctx.notify("代理未启动，请先在配置中导入节点", "warning")
+                else:
+                    self.ctx.notify(
+                        f"代理已{'启用' if actual else '停用'}",
+                        "success" if actual else "info",
+                    )
+            elif action == "node":
+                self.ctx.notify(f"已切换节点：{payload.get('value')}", "success")
+
+        def failed(message: str) -> None:
+            self._quick_workers.pop(plugin_id, None)
+            self.ctx.notify(f"插件操作失败：{message}", "error")
+            self._render_installed()
+
+        worker.succeeded.connect(succeeded)
+        worker.failed.connect(failed)
+        worker.start()
 
     def _set_active(self, record: PluginRecord, active: bool) -> None:
         ids = set(self.ctx.config.active_plugins)

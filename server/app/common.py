@@ -79,6 +79,7 @@ def tunnel_payload(tunnel: dict) -> dict:
         "name": tunnel["name"],
         "local_host": tunnel["local_host"],
         "local_port": int(tunnel["local_port"]),
+        "host_id": tunnel.get("host_id"),
         "nps_client_id": tunnel.get("nps_client_id"),
         "vkey": tunnel["vkey"],
         "server_addr": tunnel.get("server_addr") or "",

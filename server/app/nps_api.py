@@ -221,6 +221,15 @@ def create_tcp_tunnel(
     return {"id": task_id, "port": int(public_port), "target": target}
 
 
+def set_tunnel_enabled(task_id: int, enabled: bool) -> None:
+    """切换单条隧道状态，不触碰同一主机下的其他隧道。
+
+    NPS 的 IndexController 提供 Start/Stop 路由，而不是 changestatus；
+    这两个操作只作用于指定 TCP 任务。
+    """
+    _post("/index/start/" if enabled else "/index/stop/", {"id": int(task_id)})
+
+
 def delete_tunnel(task_id: int) -> None:
     _post("/index/del/", {"id": int(task_id)})
 

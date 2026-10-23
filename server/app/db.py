@@ -120,6 +120,21 @@ CREATE TABLE IF NOT EXISTS nps_tunnels (
     FOREIGN KEY(owner_id) REFERENCES users(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_nps_tunnels_owner ON nps_tunnels(owner_id);
+
+CREATE TABLE IF NOT EXISTS nps_hosts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    nps_client_id INTEGER,
+    vkey TEXT NOT NULL,
+    server_addr TEXT NOT NULL DEFAULT '',
+    server_port INTEGER NOT NULL DEFAULT 8024,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(owner_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_nps_hosts_owner ON nps_hosts(owner_id);
 """
 
 
@@ -240,6 +255,44 @@ def init_db() -> None:
             conn.execute("ALTER TABLE nps_tunnels ADD COLUMN nps_task_id INTEGER")
         if "public_port" not in tunnel_columns:
             conn.execute("ALTER TABLE nps_tunnels ADD COLUMN public_port INTEGER")
+        if "host_id" not in tunnel_columns:
+            conn.execute("ALTER TABLE nps_tunnels ADD COLUMN host_id INTEGER")
+        # 旧版本把每个隧道都建成独立 NPS 客户端。迁移成 host 记录，
+        # 保留已经存在的客户端，后续创建隧道只复用对应主机。
+        legacy_rows = conn.execute(
+            "SELECT * FROM nps_tunnels WHERE nps_client_id IS NOT NULL "
+            "AND vkey <> '' AND (host_id IS NULL OR host_id = 0)"
+        ).fetchall()
+        for row in legacy_rows:
+            host = conn.execute(
+                "SELECT id FROM nps_hosts WHERE owner_id = ? AND nps_client_id = ? LIMIT 1",
+                (row["owner_id"], row["nps_client_id"]),
+            ).fetchone()
+            if host:
+                host_id = int(host["id"])
+            else:
+                cursor = conn.execute(
+                    "INSERT INTO nps_hosts(owner_id, name, nps_client_id, vkey, "
+                    "server_addr, server_port, enabled, created_at, updated_at) "
+                    "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        row["owner_id"],
+                        str(row["name"] or "NPS 主机")[:80],
+                        row["nps_client_id"],
+                        row["vkey"],
+                        row["server_addr"],
+                        row["server_port"],
+                        int(row["enabled"] or 1),
+                        row["created_at"],
+                        row["updated_at"],
+                    ),
+                )
+                host_id = int(cursor.lastrowid or 0)
+            conn.execute(
+                "UPDATE nps_tunnels SET host_id = ? "
+                "WHERE owner_id = ? AND nps_client_id = ?",
+                (host_id, row["owner_id"], row["nps_client_id"]),
+            )
     _seed()
 
 

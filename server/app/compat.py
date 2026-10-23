@@ -17,6 +17,7 @@ FEATURES = (
     "registration_review",
     "shares",
     "devices",
+    "nps_hosts",
     "nps_tunnels",
     "auto_tunnel",
     "server_update_check",

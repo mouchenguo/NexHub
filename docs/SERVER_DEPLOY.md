@@ -273,7 +273,7 @@ curl http://127.0.0.1:8000/api/health
 正常返回示例：
 
 ```json
-{"status":"ok","service":"nexhub-server","version":"0.1.4-beta","database":"ok"}
+{"status":"ok","service":"nexhub-server","version":"0.1.5-beta","database":"ok"}
 ```
 
 初始化时会自动创建：

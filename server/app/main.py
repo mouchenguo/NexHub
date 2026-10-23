@@ -13,7 +13,7 @@ from . import db
 from .common import client_ip
 from .compat import API_VERSION, MIN_CLIENT_VERSION, server_info
 from .config import settings
-from .routers import account, admin, auth, dashboard, devices, public, shares, site, tunnels
+from .routers import account, admin, auth, dashboard, devices, nps_hosts_api, public, shares, site, tunnels
 
 logger = logging.getLogger("nexhub.server")
 
@@ -40,6 +40,7 @@ downloads_dir.mkdir(parents=True, exist_ok=True)
 
 for router in (
     site.router,
+    nps_hosts_api.router,
     auth.router,
     dashboard.router,
     shares.router,

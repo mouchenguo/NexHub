@@ -319,12 +319,17 @@ def main() -> int:
         db.set_setting("nps_server_port", "8024")
         with (
             patch(
-                "app.routers.tunnels.create_client",
+                "app.nps_hosts.create_client",
                 return_value={"id": 501, "vkey": "test", "remark": "NexHub/tester"},
             ) as nps_create,
             patch("app.routers.tunnels.update_client") as nps_update,
-            patch("app.routers.tunnels.set_client_enabled") as nps_state,
-            patch("app.routers.tunnels.delete_client") as nps_delete,
+            patch("app.routers.tunnels.set_tunnel_enabled") as nps_state,
+            patch("app.nps_hosts.delete_client") as nps_delete,
+            patch("app.routers.tunnels.delete_tunnel") as nps_task_delete,
+            patch(
+                "app.nps_hosts.find_client",
+                return_value={"Id": 501, "VerifyKey": "test", "Status": True},
+            ),
             patch(
                 "app.routers.tunnels.create_tcp_tunnel",
                 return_value={"id": 7001, "port": 30011, "target": "127.0.0.1:3389"},
@@ -339,10 +344,6 @@ def main() -> int:
                         "ClientId": 501,
                     }
                 ],
-            ),
-            patch(
-                "app.routers.tunnels.find_client",
-                return_value={"Id": 501, "VerifyKey": "test", "Status": True},
             ),
         ):
             tunnel = client.post(
@@ -368,7 +369,12 @@ def main() -> int:
             check(started.status_code == 200 and started.json()["enabled"], "启用 NPS 隧道")
             check(nps_state.call_count == 2, "隧道启停调用 NPS API")
             removed = client.delete(f"/api/tunnels/{tunnel_id}", headers=test_headers)
-            check(removed.status_code == 200 and nps_delete.called, "删除 NPS 隧道")
+            check(
+                removed.status_code == 200
+                and nps_task_delete.called
+                and not nps_delete.called,
+                "删除 NPS 隧道但保留共享主机",
+            )
 
             auto_payload = {
                 "name": "RDP-测试设备",
@@ -396,8 +402,8 @@ def main() -> int:
                 "一键自动配置幂等复用现有主机",
             )
             check(
-                nps_create.call_count == 2 and nps_tcp_create.call_count == 1,
-                "自动配置复用 NPS 客户端与 TCP 隧道",
+                nps_create.call_count == 1 and nps_tcp_create.call_count == 2,
+                "自动配置复用 NPS 主机与 TCP 隧道",
             )
 
             other = client.get("/api/tunnels", headers=demo_headers)

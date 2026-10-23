@@ -156,7 +156,17 @@ class ApiClient:
     def device_offline(self, device_id: str) -> dict:
         return self._request("DELETE", f"/api/devices/{quote(device_id)}", timeout=5)
 
-    # ------------------------------------------------------------------ NPS 隧道
+    # ------------------------------------------------------------------ NPS 主机 / 隧道
+    def list_nps_hosts(self) -> list[dict]:
+        data = self._request("GET", "/api/nps/hosts")
+        return data.get("items", data) if isinstance(data, dict) else data
+
+    def create_nps_host(self, payload: dict) -> dict:
+        return self._request("POST", "/api/nps/hosts", json=payload)
+
+    def delete_nps_host(self, host_id: int) -> dict:
+        return self._request("DELETE", f"/api/nps/hosts/{host_id}")
+
     def list_nps_tunnels(self) -> list[dict]:
         data = self._request("GET", "/api/tunnels")
         return data.get("items", data) if isinstance(data, dict) else data

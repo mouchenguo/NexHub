@@ -59,11 +59,22 @@ class DeviceHeartbeatIn(BaseModel):
     tunnel_address: str = Field(default="", max_length=512)
 
 
+class NpsHostCreateIn(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+
+    @field_validator("name")
+    @classmethod
+    def strip_values(cls, value: str) -> str:
+        return value.strip()
+
+
 class NpsTunnelCreateIn(BaseModel):
     name: str = Field(min_length=1, max_length=64)
     local_host: str = Field(min_length=1, max_length=128)
     local_port: int = Field(ge=1, le=65535)
     rdp_task: bool = False
+    host_id: int | None = Field(default=None, ge=1)
+    host_name: str = Field(default="", max_length=80)
 
     @field_validator("name", "local_host")
     @classmethod
