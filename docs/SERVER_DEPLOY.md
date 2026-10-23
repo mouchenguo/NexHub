@@ -187,6 +187,9 @@ NEXHUB_COOKIE_SECURE=false
 # 网页分享链接使用的公网地址，不要带结尾斜杠
 NEXHUB_WEB_BASE=https://hub.example.com
 
+# 管理后台「服务端检查更新」更新源（默认 GitHub Releases；可换成镜像/latest.json）
+NEXHUB_UPDATE_FEED=https://api.github.com/repos/mouchenguo/NexHub/releases
+
 # 阿里云 OSS（可选；不配置则使用本地回退存储）
 OSS_ENDPOINT=https://oss-cn-hangzhou.aliyuncs.com
 OSS_BUCKET=your-bucket
@@ -227,6 +230,7 @@ openssl rand -hex 32
 - `NEXHUB_DATA_DIR` 一旦使用后不要随意修改，否则会出现“数据还在、但服务读不到”的情况。
 - `NEXHUB_ADMIN_PASSWORD` 和 `NEXHUB_DEMO_PASSWORD` 只在数据库第一次初始化时生效；已有数据库不会因为改 `.env` 自动改密码。
 - `NEXHUB_REGISTRATION_AUTO_APPROVE` 默认 `1`，新账号注册后自动审核通过；设为 `0` 后新账号进入待审核状态。首次启动后也可在管理后台「系统设置」中随时切换，无需重启。
+- `NEXHUB_UPDATE_FEED` 默认读取 GitHub Releases API，管理后台「系统设置 → 服务端检查更新」会用它比较版本。无法访问 GitHub 时，可改成镜像地址或兼容 `latest.json` 的更新源。检查只做版本提示，不会自动升级服务端。
 - `NEXHUB_WEB_BASE`、OSS 配额和 nps 配置在第一次初始化时也会写入数据库；之后应优先在管理后台的 `/admin/settings`、`/admin/oss` 或 `/admin/nps` 修改。
 - 如果在管理后台执行过「轮换密钥」，数据库中的 `jwt_secret` 会优先于 `.env` 的 `NEXHUB_SECRET_KEY`。
 - 生产环境不要把 `NEXHUB_HOST` 设置成 `0.0.0.0` 后直接暴露 `8000`，推荐使用本文的 Nginx 方案。
@@ -647,6 +651,8 @@ sudo systemctl start nexhub
 恢复后检查 `/api/health`、管理员登录和最近共享记录。
 
 ## 13. 升级服务端
+
+先登录管理后台打开「系统设置 → 服务端检查更新」，确认当前版本和最新版本，并下载对应的 `NexHub-Server-Deploy.zip`。更新检查不会自动覆盖运行中的服务端文件。
 
 升级前先备份数据库和 `.env`：
 

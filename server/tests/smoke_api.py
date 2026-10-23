@@ -10,7 +10,7 @@ import os
 import shutil
 import sys
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 SERVER_ROOT = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = SERVER_ROOT.parent
@@ -27,7 +27,7 @@ sys.path.insert(0, str(SERVER_ROOT))
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-from app import db  # noqa: E402
+from app import db, update_service  # noqa: E402
 from app.main import app  # noqa: E402
 
 
@@ -295,6 +295,85 @@ def main() -> int:
         ):
             response = client.get(path, cookies=admin_login.cookies)
             check(response.status_code == 200 and keyword in response.text, f"后台页面 {path}")
+        settings_page = client.get("/admin/settings", cookies=admin_login.cookies)
+        check("服务端检查更新" in settings_page.text, "后台显示服务端检查更新入口")
+
+        release_payload = [
+            {
+                "tag_name": "v0.1.2",
+                "html_url": "https://github.com/mouchenguo/NexHub/releases/tag/v0.1.2",
+                "published_at": "2026-10-20T00:00:00Z",
+                "body": "旧版本",
+                "assets": [],
+            },
+            {
+                "tag_name": "v0.2.0-beta",
+                "html_url": "https://github.com/mouchenguo/NexHub/releases/tag/v0.2.0-beta",
+                "published_at": "2026-10-23T00:00:00Z",
+                "body": "## 更新内容\n- 服务端检查更新\n",
+                "assets": [
+                    {
+                        "name": "NexHub-Server-Deploy.zip",
+                        "browser_download_url": "https://github.com/mouchenguo/NexHub/releases/download/v0.2.0-beta/NexHub-Server-Deploy.zip",
+                        "digest": "sha256:abc123",
+                    }
+                ],
+            },
+            {
+                "tag_name": "v0.1.0-beta",
+                "html_url": "https://github.com/mouchenguo/NexHub/releases/tag/v0.1.0-beta",
+                "published_at": "2026-10-01T00:00:00Z",
+                "body": "当前版本",
+                "assets": [],
+            },
+        ]
+        fake_response = Mock()
+        fake_response.raise_for_status.return_value = None
+        fake_response.json.return_value = release_payload
+        with patch("app.update_service.requests.get", return_value=fake_response):
+            parsed_update = update_service.check_for_server_update(
+                "0.1.0-beta", "https://example.test/releases"
+            )
+            parsed_current = update_service.check_for_server_update(
+                "0.2.0-beta", "https://example.test/releases"
+            )
+        check(
+            parsed_update.latest_version == "0.2.0-beta"
+            and parsed_update.update_available
+            and parsed_update.server_download_url.endswith("NexHub-Server-Deploy.zip")
+            and parsed_update.server_sha256 == "abc123"
+            and "服务端检查更新" in parsed_update.notes,
+            "服务端更新检查解析 Release 与预发布版本",
+        )
+        check(
+            not parsed_current.update_available,
+            "服务端版本相同时不提示更新",
+        )
+        fake_update = update_service.ServerUpdateInfo(
+            current_version="0.1.0-beta",
+            latest_version="0.2.0-beta",
+            update_available=True,
+            release_url="https://github.com/mouchenguo/NexHub/releases/tag/v0.2.0-beta",
+            server_download_url="https://github.com/mouchenguo/NexHub/releases/download/v0.2.0-beta/NexHub-Server-Deploy.zip",
+            published_at="2026-10-23 00:00 UTC",
+            notes=["服务端检查更新"],
+            source="GitHub Releases",
+            checked_at="2026-10-23 00:00 UTC",
+            latest_tag="v0.2.0-beta",
+            server_sha256="abc123",
+        )
+        with patch("app.routers.admin.check_for_server_update", return_value=fake_update):
+            update_page = client.get(
+                "/admin/settings?check=1", cookies=admin_login.cookies
+            )
+        check(
+            update_page.status_code == 200
+            and "发现新版本" in update_page.text
+            and "v0.2.0-beta" in update_page.text
+            and "下载服务端部署包" in update_page.text
+            and "abc123" in update_page.text,
+            "后台检查服务端更新并显示下载入口",
+        )
         users_page = client.get("/admin/users", cookies=admin_login.cookies)
         check(
             "待审核" in users_page.text and "自动审核已开启" in users_page.text,

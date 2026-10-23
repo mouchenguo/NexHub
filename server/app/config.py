@@ -72,6 +72,13 @@ class Settings:
     registration_auto_approve: bool = _env_bool(
         "NEXHUB_REGISTRATION_AUTO_APPROVE", True
     )
+    update_feed_url: str = (
+        _env(
+            "NEXHUB_UPDATE_FEED",
+            "https://api.github.com/repos/mouchenguo/NexHub/releases",
+        ).strip()
+        or "https://api.github.com/repos/mouchenguo/NexHub/releases"
+    )
     web_base: str = _env("NEXHUB_WEB_BASE", "").rstrip("/")
     cookie_secure: bool = _env_bool("NEXHUB_COOKIE_SECURE", False)
     max_oss_bytes: int = _env_int("NEXHUB_MAX_OSS_BYTES", 5 * GIB)

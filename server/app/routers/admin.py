@@ -28,6 +28,7 @@ from ..registration import (
 from ..security import hash_password, verify_password
 from ..share_ops import cancel_share, fetch_share, remove_share
 from ..templating import render
+from ..update_service import check_for_server_update
 
 router = APIRouter(tags=["admin"])
 
@@ -548,6 +549,36 @@ def admin_logs(
 @router.get("/admin/settings")
 def admin_settings(request: Request, admin: dict = Depends(admin_page_user)):
     context = _base_context(admin, "settings", "系统设置")
+    update_check = None
+    update_error = ""
+    if request.query_params.get("check", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    ):
+        try:
+            update_check = check_for_server_update(
+                settings.version, settings.update_feed_url
+            )
+            db.log_event(
+                "info",
+                "system",
+                f"检查服务端更新：当前 v{update_check.current_version}，"
+                f"最新 v{update_check.latest_version}，"
+                f"{'发现新版本' if update_check.update_available else '已是最新'}",
+                user_id=admin["id"],
+                ip=client_ip(request),
+            )
+        except Exception as exc:
+            update_error = str(exc) or exc.__class__.__name__
+            db.log_event(
+                "warning",
+                "system",
+                f"检查服务端更新失败：{update_error}",
+                user_id=admin["id"],
+                ip=client_ip(request),
+            )
     context.update(
         {
             "cfg": settings,
@@ -555,6 +586,9 @@ def admin_settings(request: Request, admin: dict = Depends(admin_page_user)):
             "auto_approve_value": auto_approve_enabled(),
             "oss": oss_service.status(),
             "secret_is_default": not bool(db.get_setting("jwt_secret", "")),
+            "update_check": update_check,
+            "update_error": update_error,
+            "update_feed_url": settings.update_feed_url,
             "message": request.query_params.get("msg", ""),
             "message_type": request.query_params.get("type", "success"),
         }

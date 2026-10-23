@@ -63,6 +63,56 @@ OSS_PREFIX=nexhub/shares
 </div>
 
 <section class="card">
+    <div class="card-head">
+        <div><h2>服务端检查更新</h2><p>从 GitHub Releases / 自定义更新源比较版本；只检查，不自动覆盖运行中的服务端</p></div>
+        {% if update_check %}
+        <span class="badge {{ 'badge-orange' if update_check.update_available else 'badge-green' }}">{{ '发现新版本' if update_check.update_available else '已是最新' }}</span>
+        {% elif update_error %}
+        <span class="badge badge-red">检查失败</span>
+        {% else %}
+        <span class="badge badge-blue">未检查</span>
+        {% endif %}
+    </div>
+    {% if update_error %}
+    <div class="inline-warning">检查失败：{{ update_error }}</div>
+    {% endif %}
+    {% if update_check %}
+    <div class="kv-list">
+        <div><span>当前版本</span><strong>v{{ update_check.current_version }}</strong></div>
+        <div><span>最新版本</span><strong>v{{ update_check.latest_version }}</strong></div>
+        <div><span>发布时间</span><strong>{{ update_check.published_at }}</strong></div>
+        <div><span>检查时间</span><strong>{{ update_check.checked_at }}</strong></div>
+        <div><span>更新源</span><strong>{{ update_check.source }}</strong></div>
+        {% if update_check.server_sha256 %}
+        <div><span>服务端包 SHA-256</span><strong class="mono">{{ update_check.server_sha256 }}</strong></div>
+        {% endif %}
+    </div>
+    {% if update_check.update_available %}
+    <div class="inline-warning">发现服务端新版本 v{{ update_check.latest_version }}。请先备份数据库和 <code>.env</code>，再按部署文档升级；后台不会自动替换服务端文件。</div>
+    {% else %}
+    <p class="muted small">当前服务端已是最新版本 v{{ update_check.current_version }}。如果发布包已更新但版本号未变化，检查结果不会变化。</p>
+    {% endif %}
+    {% if update_check.notes and update_check.update_available %}
+    <ul class="rules">
+        {% for note in update_check.notes %}<li>{{ note }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+    {% else %}
+    <p class="muted small">点击“检查更新”会读取更新源并比较服务端版本，不会自动下载或覆盖文件。更新源：<code>{{ update_feed_url }}</code></p>
+    {% endif %}
+    <div class="card-actions">
+        {% if update_check and update_check.update_available %}
+        <a class="btn btn-primary btn-sm" href="{{ update_check.server_download_url }}" target="_blank" rel="noopener">下载服务端部署包</a>
+        <a class="btn btn-secondary btn-sm" href="{{ update_check.release_url }}" target="_blank" rel="noopener">查看 Release</a>
+        <a class="btn btn-ghost btn-sm" href="/admin/settings?check=1">重新检查</a>
+        {% else %}
+        <a class="btn btn-primary btn-sm" href="/admin/settings?check=1">检查更新</a>
+        {% endif %}
+        <a class="btn btn-ghost btn-sm" href="/downloads/" target="_blank" rel="noopener">本地下载页</a>
+    </div>
+</section>
+
+<section class="card">
     <div class="card-head"><div><h2>安全与部署建议</h2><p>生产环境上线前逐项确认</p></div></div>
     <ul class="rules">
         <li>修改初始管理员密码：在「用户管理」中为 admin 重置强密码。</li>

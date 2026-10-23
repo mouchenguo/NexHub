@@ -2,13 +2,17 @@
   "version": "0.1.0-beta",
   "download_url": "NexHub-v0.1.0-beta.exe",
   "page_url": "./",
+  "server_download_url": "NexHub-Server-Deploy.zip",
+  "server_bundle_url": "NexHub-Server-Bundle.zip",
   "published_at": "2026-10-23",
   "notes": [
+    "服务端管理后台新增检查更新：读取 GitHub Releases，显示版本、部署包与 SHA-256",
     "新增 NPC 一键自动配置：服务器自动创建/修复 NPS 主机与 TCP 隧道",
     "客户端自动安装 NPC、写入 npc.conf、重启服务并显示公网 RDP 地址",
     "NPS 客户端或隧道丢失时自动重建，已有 vkey 可幂等复用",
     "保留注册自动审核、管理后台审核和现有账号密码",
     "Release 客户端资产只保留一个 NexHub-v0.1.0-beta.exe"
   ],
-  "sha256": "6BDC182F4676D54D720746D3211FAAA74C1E402FD811AE90B0CF2B1D79A13BC6"
+  "sha256": "6BDC182F4676D54D720746D3211FAAA74C1E402FD811AE90B0CF2B1D79A13BC6",
+  "server_sha256": "7BE002573BBC11CFDF0103D42A3537BC60E72961F76DEDD79B57F53E3E51AE14"
 }
