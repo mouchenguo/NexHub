@@ -7,22 +7,22 @@ NexHub 面向个人和可信好友小范围使用：在本机一键发布文件/
 **Fluent Design · 默认深色主题 · FluentWindow 可折叠侧边栏 · 圆角卡片 · 深浅主题一键切换 · OSS 密钥只存在 ECS 后端**
 
 [![GitHub Release](https://img.shields.io/github/v/release/mouchenguo/NexHub?include_prereleases&label=release)](https://github.com/mouchenguo/NexHub/releases)
-[![Platform](https://img.shields.io/badge/platform-Windows%2010%20%2F%2011-0078D4)](https://github.com/mouchenguo/NexHub/releases/tag/v0.1.2-beta)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%20%2F%2011-0078D4)](https://github.com/mouchenguo/NexHub/releases/tag/v0.1.3-beta)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB)](https://www.python.org/)
 
 ## 下载
 
 | 文件 | 说明 |
 | --- | --- |
-| [`NexHub-v0.1.2-beta.exe`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.2-beta/NexHub-v0.1.2-beta.exe) | Windows 10 / 11 x64 客户端（预发行） |
-| [`NexHub-Server-Deploy.zip`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.2-beta/NexHub-Server-Deploy.zip) | 服务端一键部署包（含安装脚本） |
-| [`NexHub-Server-Bundle.zip`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.2-beta/NexHub-Server-Bundle.zip) | 仅服务端程序包，适合手动升级 |
+| [`NexHub-v0.1.3-beta.exe`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.3-beta/NexHub-v0.1.3-beta.exe) | Windows 10 / 11 x64 客户端（预发行） |
+| [`NexHub-Server-Deploy.zip`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.3-beta/NexHub-Server-Deploy.zip) | 服务端一键部署包（含安装脚本） |
+| [`NexHub-Server-Bundle.zip`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.3-beta/NexHub-Server-Bundle.zip) | 仅服务端程序包，适合手动升级 |
 
-> GitHub Release 的客户端资产只保留一个 `NexHub-v0.1.2-beta.exe`，不再同时上传 `NexHub.exe` 与版本化副本。完整发布页见 [Releases](https://github.com/mouchenguo/NexHub/releases)。
+> GitHub Release 的客户端资产只保留一个 `NexHub-v0.1.3-beta.exe`，不再同时上传 `NexHub.exe` 与版本化副本。完整发布页见 [Releases](https://github.com/mouchenguo/NexHub/releases)。
 
 ## 版本策略
 
-- `v1.0.0` 之前所有版本都是预发行版，版本号统一带 `-beta` 后缀，例如 `v0.1.2-beta`。
+- `v1.0.0` 之前所有版本都是预发行版，版本号统一带 `-beta` 后缀，例如 `v0.1.3-beta`。
 - GitHub Release 在 `v1.0.0` 之前都标记为 **Pre-release**，不作为稳定发行版。
 - `v1.0.0` 才是第一个正式发行版；达到该版本后再按正常稳定版策略发布。
 - 发布 tag 与版本号保持一致，下载文件名使用 `NexHub-v<版本>.exe`。
@@ -66,7 +66,7 @@ NexHub 面向个人和可信好友小范围使用：在本机一键发布文件/
 - **账号系统**：主界面左下角显示「请登录」，点击后打开居中的内嵌登录面板；支持登录 / 注册切换、用户名或昵称登录（UTF-8 + Unicode NFC 统一处理）、记住我（DPAPI 加密凭证）、自动登录、修改昵称、修改密码、退出登录；注册默认由服务端自动审核通过，也可切换为人工审核；服务器地址在设置页配置，**不硬编码 ECS IP**。
 - **单实例运行**：重复启动不会创建新窗口，而是通过本地 IPC 唤起已有实例（包括已关闭窗口并隐藏到托盘的情况）。
 - **窗口行为**：最小化保留在任务栏；点击关闭按钮才隐藏到托盘；托盘菜单仅保留「显示 NexHub / 退出 NexHub」。
-- **检查更新与下载页**：设置 → 关于与本地数据 → 检查更新，读取 `服务器地址/downloads/latest.json`；启动后登录状态会自动检查一次，发现新版本时询问是否自动下载、替换并重启。当前版本 `v0.1.2-beta`。
+- **检查更新与下载页**：设置 → 关于与本地数据 → 检查更新，读取 `服务器地址/downloads/latest.json`；启动后登录状态会自动检查一次，发现新版本时询问是否自动下载、替换并重启。当前版本 `v0.1.3-beta`。
 - **仪表盘**：活跃共享、RDP 主机数量、OSS 已用容量、服务状态、最近动态。
 - **一键共享**：
   - 自动扫描文件/文件夹并统计大小；
@@ -78,7 +78,7 @@ NexHub 面向个人和可信好友小范围使用：在本机一键发布文件/
 - **我的共享**：搜索、按类型/状态筛选、复制链接、取消共享、删除共享。
 - **共享广场**：卡片网格、搜索、排序、目录树浏览、勾选部分文件、自定义保存路径、流式下载与进度显示。
 - **RDP 主机**：本地保存主机名称、IP/域名、端口、用户名、加密密码和备注；新增/编辑/删除；一键调用 Windows 原生 `mstsc.exe`，优先生成临时 `.rdp` 文件并在会话结束后清理；支持勾选 NPS 隧道并使用 NPC 配置中的 RDP 隧道地址。
-- **工具箱（插件化）**：内置「内存优化」插件；点击「添加插件」可生成 `ToolPlugin` 空模板，模板可编辑并保存到 `%APPDATA%\NexHub\plugins`，保存后立即加载；支持「打开插件目录」和重新扫描加载。
+- **工具箱（插件广场 + 进程隔离）**：工具箱内提供「已安装」与「插件广场」两个标签；支持远程清单、搜索、分类、安装/更新/卸载、本地 zip 导入。插件在独立宿主进程中运行，单个插件崩溃不会退出主程序。内存优化与域名定向加速均以 zip 插件形式安装，不再内置。设置页可修改插件广场 API 地址。
 - **NPC 一键自动配置**：设置 → NPC 与内网穿透 → 「一键自动配置 NPC」；登录后点击即可请求 ECS，服务端幂等创建/修复当前设备的 NPS 客户端与 TCP 隧道，客户端自动安装 NPC、写入 `npc.conf`、重启服务，并显示公网 RDP 地址，无需手动填写 vkey。
 - **设置 → NPC 管理 → 隧道管理**：三层文件夹式导航；填写本机服务 IP/端口后，ECS 自动调用 NPS Web API 创建独立 NPS 客户端并生成唯一 vkey；支持将 vkey/NPS 地址下发到本机 `npc.conf`、一键重启 NPC、启停/编辑/删除隧道。发布临时共享时 ECS 会为该共享自动分配公网 TCP 端口并创建 NPS 隧道，取消/删除共享时自动关闭隧道；离线体验使用模拟隧道，不调用真实 NPS、不写本机配置。
 - **设置 → NPC 与内网穿透**：内置 NPC 资源，启动时检测 `C:\Program Files\npc\npc.exe`；缺失时经 UAC 自动释放，目录损坏时提示重新解压修复；NPC 只提供「主机 IP（含端口）」和「vkey」两个输入项，保存写入 `C:\Program Files\npc\conf\npc.conf`，支持一键重启 `Npc` 服务；RDP/NPS 隧道地址也在此模块统一维护。
@@ -501,26 +501,37 @@ python server\tests\preview_admin.py
 - 临时共享依赖客户端内嵌服务 + nps 隧道；客户端退出后自动失效。
 - OSS 自动清理是全局策略，会删除最早创建的活跃 OSS 共享；客户端发布页和管理后台均有提示。
 - 管理后台为管理员单一角色，未实现细粒度 RBAC、2FA、分页；适合个人/小型可信团队。
-- 客户端可直接下载 Release 中的 `NexHub-v0.1.2-beta.exe`（onefile），也可使用 `client/build_client.bat` 自行打包。
+- 客户端可直接下载 Release 中的 `NexHub-v0.1.3-beta.exe`（onefile），也可使用 `client/build_client.bat` 自行打包。
 - RDP 依赖 Windows 自带 `mstsc.exe`；macOS/Linux 不支持该模块。
 - 客户端离线体验使用 `%APPDATA%\NexHub\demo` 下的真实示例文件，仅用于演示交互。
 
-工具箱插件扩展方式：
+工具箱插件扩展方式（zip 插件，独立进程）：
+
+```text
+plugins/<manifest.id>/
+  manifest.json   # id/name/version/description/requirements
+  plugin.py       # 必须提供 create_window(context)
+  icon.png        # 可选
+```
+
+`plugin.py` 在独立进程中运行，`context` 由 `nexhub.plugin_api.PluginContext` 提供；插件 UI 使用 PyQt-Fluent-Widgets，主程序不 import 插件业务代码。插件包可以导入 `%APPDATA%\\NexHub\\plugins`，也可以通过插件广场 API 安装。插件广场 API 默认地址为 `http://47.108.130.177:8001/nexhub/plugin`，设置页可覆盖。
 
 ```python
-from nexhub.services.plugin_manager import ToolPlugin
-
-class MyPlugin(ToolPlugin):
-    plugin_id = "my_plugin"
-    name = "我的插件"
-    description = "插件说明"
-    glyph = "✦"
-
-    def create_widget(self, ctx, parent=None):
-        return MyWidget(ctx, parent)
-
-ctx.plugins.register(MyPlugin())
+def create_window(context):
+    # 返回 QWidget 或 QMainWindow；由插件宿主进程显示
+    return MyPluginWindow(context)
 ```
+
+插件仓库/测试服务端：
+
+```bash
+python tools/build_plugins.py
+python plugin_server/server.py --host 0.0.0.0 --port 8001
+```
+
+清单接口：`GET /nexhub/plugin` 返回 `{"plugins": [...]}`；每项至少包含 `id/name/version/description/requirements/download_url`，可附带 `sha256/size/category/icon_url`。插件包下载接口为 `GET /nexhub/plugin/downloads/<name>.zip`，支持 HTTP Range 断点续传。
+
+插件进程由主程序的 `PluginProcessManager` 启动和回收；主题变化通过进程 stdin 同步。域名定向加速插件不会修改系统代理，也不会启用 TUN，只监听 `127.0.0.1:7890`，并将白名单外的域名设为 `DIRECT`。
 
 ## 默认账号与首次运行提醒
 

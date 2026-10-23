@@ -1,18 +1,18 @@
 {
-  "version": "0.1.2-beta",
-  "download_url": "NexHub-v0.1.2-beta.exe",
+  "version": "0.1.3-beta",
+  "download_url": "NexHub-v0.1.3-beta.exe",
   "page_url": "./",
   "server_download_url": "NexHub-Server-Deploy.zip",
   "server_bundle_url": "NexHub-Server-Bundle.zip",
   "published_at": "2026-10-23",
   "notes": [
-    "新增修改昵称：账户面板和账号页均可修改，登录用户名保持不变",
-    "登录支持用户名或昵称，统一使用 UTF-8 与 Unicode NFC，重复昵称提示使用用户名",
-    "启动后自动检查一次更新，发现新版本时询问是否自动下载、替换并重启",
-    "自动更新校验 SHA-256，替换当前 exe 后重新启动，账号和本地配置保持不变",
-    "版本号改为 v0.1.2-beta；v1.0.0 之前全部为预发行版，v1.0.0 才是第一个正式发行版",
-    "保留原有账号密码、头像、注册审核、共享与 NPS 功能"
+    "新增插件广场：远程清单、搜索、分类、安装、更新与卸载，支持本地 zip 导入",
+    "插件改为独立宿主进程运行，单个插件崩溃不会退出主程序，也不会影响 NPC/NPS",
+    "内存优化改为 zip 插件（ID 1），不再内置在主程序中",
+    "新增域名定向加速插件：内嵌 mihomo，仅监听 127.0.0.1:7890，不修改系统代理、不启用 TUN，白名单外全部直连",
+    "插件下载支持 HTTP Range 断点续传和 SHA-256 校验，设置页可配置插件广场 API 地址",
+    "服务端同步升级到 v0.1.3-beta，保留昵称登录、资料修改、设备和隧道能力"
   ],
-  "sha256": "0C20196FE6C378184D9268B817F2BECC44F79045811BD029E6CF43132D9046EF",
-  "server_sha256": "DB05249649F99AEBD56EA8DE420D3874FCAE8147B811EC18E0FD5159B64DCDA8"
+  "sha256": "EA9C4CDF78EF2E15A012FBE54D3785261A3225175BA4578509AA75EA7D719EBF",
+  "server_sha256": "7B57E6AF3C75E3F4DA50A2C86207B99B0FB1B7BEEB4358DF2F63A7C111B2625F"
 }

@@ -27,7 +27,7 @@ jobs:
       - name: Build NexHub.exe
         working-directory: client
         run: |
-          python -m PyInstaller --noconfirm --clean --onefile --windowed --name NexHub --icon "nexhub\resources\nexhub.ico" --add-data "nexhub\resources;nexhub\resources" --collect-all qfluentwidgets --hidden-import nexhub.npc_admin --hidden-import win32crypt main.py
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name NexHub --icon "nexhub\resources\nexhub.ico" --add-data "nexhub\resources;nexhub\resources" --collect-all qfluentwidgets --hidden-import nexhub.plugin_host --hidden-import nexhub.services.memory_optimizer --hidden-import nexhub.npc_admin --hidden-import win32crypt main.py
 
       - name: Prepare single release executable
         shell: pwsh

@@ -1,0 +1,30 @@
+{
+  "plugins": [
+    {
+      "id": "1",
+      "name": "内存优化",
+      "version": "1.0.0",
+      "description": "回收进程工作集，释放闲置内存，适合长期开机的工作站。",
+      "requirements": "psutil>=5.9",
+      "category": "系统工具",
+      "glyph": "◍",
+      "download_url": "downloads/memory_optimizer.zip",
+      "sha256": "2D8D04690CA357507BB1D4EC3F0CF3045D38E7F0C6354A585F376B8D9EA16560",
+      "size": 5020,
+      "icon_url": "icons/memory_optimizer.png"
+    },
+    {
+      "id": "domain_proxy",
+      "name": "域名定向加速",
+      "version": "1.0.0",
+      "description": "仅让白名单域名通过本地代理转发，其他流量直连；不修改系统代理。",
+      "requirements": "requests>=2.31",
+      "category": "网络工具",
+      "glyph": "↗",
+      "download_url": "downloads/domain_proxy.zip",
+      "sha256": "1AA5E609CDCA2C990BFBBF0A657E7F64CF0C04BAD20B2998ECDBABA6707B63CB",
+      "size": 22346416,
+      "icon_url": "icons/domain_proxy.png"
+    }
+  ]
+}

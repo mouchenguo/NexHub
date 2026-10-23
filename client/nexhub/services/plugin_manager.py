@@ -1,15 +1,11 @@
-"""工具箱插件注册中心。
-
-新增插件只需继承 ``ToolPlugin`` 并注册到管理器，无需修改主程序。
-后续可扩展 Outlook 集成、短信代收等插件。
-"""
+"""外部插件目录注册中心（manifest 插件，进程由 PluginProcessManager 隔离启动）。"""
 from __future__ import annotations
 
-import importlib.util
-import inspect
-import sys
-import time
+import json
+import re
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PyQt6.QtWidgets import QWidget
@@ -19,8 +15,13 @@ from ..paths import user_plugins_dir
 if TYPE_CHECKING:
     from ..context import AppContext
 
+PLUGIN_ID_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
+REQUIRED_MANIFEST_FIELDS = ("id", "name", "version", "description", "requirements")
+
 
 class ToolPlugin(ABC):
+    """旧版插件类型，仅保留用于源码兼容；工具箱不再在主进程 import 插件。"""
+
     plugin_id: str = ""
     name: str = "未命名插件"
     description: str = ""
@@ -31,37 +32,112 @@ class ToolPlugin(ABC):
 
     @abstractmethod
     def create_widget(self, ctx: "AppContext", parent: QWidget | None = None) -> QWidget:
-        """创建插件主界面。"""
+        """旧版内嵌插件界面；新插件请使用 create_window(context)。"""
+
+
+@dataclass
+class PluginRecord:
+    plugin_id: str
+    name: str
+    version: str
+    description: str
+    requirements: str
+    folder: Path
+    manifest: dict = field(default_factory=dict)
+    category: str = "其他"
+    glyph: str = "✦"
+    icon_path: Path | None = None
+
+    @property
+    def id(self) -> str:
+        return self.plugin_id
+
+    @property
+    def entry(self) -> Path:
+        return self.folder / "plugin.py"
+
+    @classmethod
+    def from_folder(cls, folder: Path) -> "PluginRecord":
+        manifest_path = folder / "manifest.json"
+        if not manifest_path.is_file():
+            raise ValueError("缺少 manifest.json")
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError(f"manifest.json 无法解析：{exc}") from exc
+        if not isinstance(manifest, dict):
+            raise ValueError("manifest.json 必须是对象")
+        missing = [key for key in REQUIRED_MANIFEST_FIELDS if key not in manifest]
+        if missing:
+            raise ValueError(f"manifest.json 缺少字段：{', '.join(missing)}")
+        plugin_id = str(manifest.get("id") or "").strip()
+        if not PLUGIN_ID_PATTERN.fullmatch(plugin_id):
+            raise ValueError(f"插件 ID 非法：{plugin_id!r}")
+        name = str(manifest.get("name") or "").strip()
+        version = str(manifest.get("version") or "").strip()
+        if not name or not version:
+            raise ValueError("插件 name/version 不能为空")
+        if not (folder / "plugin.py").is_file():
+            raise ValueError("缺少 plugin.py")
+        icon = folder / "icon.png"
+        return cls(
+            plugin_id=plugin_id,
+            name=name,
+            version=version,
+            description=str(manifest.get("description") or "").strip(),
+            requirements=str(manifest.get("requirements") or "").strip(),
+            folder=folder.resolve(),
+            manifest=manifest,
+            category=str(manifest.get("category") or "其他").strip() or "其他",
+            glyph=str(manifest.get("glyph") or "✦").strip() or "✦",
+            icon_path=icon if icon.is_file() else None,
+        )
 
 
 class PluginManager:
+    """扫描 ``%APPDATA%/NexHub/plugins/<id>/manifest.json``，不 import 插件代码。"""
+
     def __init__(self, disabled_ids: set[str] | None = None) -> None:
-        self._plugins: dict[str, ToolPlugin] = {}
-        self._dynamic_ids: set[str] = set()
+        self._plugins: dict[str, PluginRecord] = {}
         self._disabled_ids: set[str] = set(disabled_ids or ())
         self.errors: list[str] = []
 
-    def register(self, plugin: ToolPlugin) -> None:
-        if not plugin.plugin_id:
-            raise ValueError("插件必须提供 plugin_id")
+    def reload_custom(self) -> list[str]:
+        self._plugins.clear()
+        self.errors = []
+        folder = user_plugins_dir()
+        for path in sorted(folder.iterdir() if folder.exists() else []):
+            if not path.is_dir() or path.name.startswith("."):
+                continue
+            try:
+                record = PluginRecord.from_folder(path)
+                if record.plugin_id in self._plugins:
+                    raise ValueError(f"插件 ID 冲突：{record.plugin_id}")
+                self._plugins[record.plugin_id] = record
+            except Exception as exc:  # noqa: BLE001 - 单个插件错误不影响主程序
+                self.errors.append(f"{path.name}: {exc}")
+        return list(self.errors)
+
+    def register(self, plugin: PluginRecord) -> None:
+        if plugin.plugin_id in self._plugins:
+            raise ValueError(f"插件 ID 冲突：{plugin.plugin_id}")
         self._plugins[plugin.plugin_id] = plugin
 
-    def all(self) -> list[ToolPlugin]:
+    def all(self) -> list[PluginRecord]:
         return [
             plugin
             for plugin_id, plugin in self._plugins.items()
             if plugin_id not in self._disabled_ids
         ]
 
-    def all_plugins(self) -> list[ToolPlugin]:
-        """管理弹窗使用：包含已关闭加载的插件。"""
+    def all_plugins(self) -> list[PluginRecord]:
         return list(self._plugins.values())
 
-    def get(self, plugin_id: str) -> ToolPlugin | None:
+    def get(self, plugin_id: str) -> PluginRecord | None:
         return self._plugins.get(plugin_id)
 
-    def is_custom(self, plugin_id: str) -> bool:
-        return plugin_id in self._dynamic_ids
+    def is_custom(self, _plugin_id: str) -> bool:
+        return True
 
     def set_enabled_ids(self, enabled_ids: set[str]) -> None:
         self._disabled_ids = set(self._plugins) - set(enabled_ids)
@@ -69,46 +145,3 @@ class PluginManager:
     @property
     def disabled_ids(self) -> set[str]:
         return set(self._disabled_ids)
-
-    def reload_custom(self) -> list[str]:
-        """重新扫描用户插件目录，替换上一次加载的自定义插件。"""
-        for plugin_id in self._dynamic_ids:
-            self._plugins.pop(plugin_id, None)
-        self._dynamic_ids.clear()
-        self.errors = []
-        directory = user_plugins_dir()
-        for path in sorted(directory.glob("*.py")):
-            if path.name.startswith("_"):
-                continue
-            module_name = f"nexhub_user_plugin_{path.stem}_{time.time_ns()}"
-            try:
-                spec = importlib.util.spec_from_file_location(module_name, path)
-                if spec is None or spec.loader is None:
-                    raise ImportError("无法创建插件加载器")
-                module = importlib.util.module_from_spec(spec)
-                sys.modules[module_name] = module
-                spec.loader.exec_module(module)
-                found = False
-                for value in vars(module).values():
-                    if not (
-                        inspect.isclass(value)
-                        and issubclass(value, ToolPlugin)
-                        and value is not ToolPlugin
-                    ):
-                        continue
-                    plugin = value()
-                    if not plugin.plugin_id:
-                        raise ValueError("插件缺少 plugin_id")
-                    if plugin.plugin_id in self._plugins:
-                        raise ValueError(
-                            f"插件 ID 与现有插件冲突：{plugin.plugin_id}"
-                        )
-                    self.register(plugin)
-                    self._dynamic_ids.add(plugin.plugin_id)
-                    found = True
-                if not found:
-                    raise ValueError("文件中没有找到 ToolPlugin 子类")
-            except Exception as exc:  # noqa: BLE001 - 插件错误不能影响主程序
-                self.errors.append(f"{path.name}: {exc}")
-                sys.modules.pop(module_name, None)
-        return list(self.errors)

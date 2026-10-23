@@ -1,0 +1,7 @@
+{
+  "id": "1",
+  "name": "内存优化",
+  "version": "1.0.0",
+  "description": "回收进程工作集，释放闲置内存，适合长期开机的工作站。",
+  "requirements": "psutil>=5.9"
+}

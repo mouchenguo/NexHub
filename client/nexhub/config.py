@@ -123,6 +123,8 @@ class AppConfig:
     display_name: str = ""
     role: str = "user"
     demo_mode: bool = False
+    # 插件广场 API 地址（默认值固定；设置页可修改）
+    plugin_market_url: str = "http://47.108.130.177:8001/nexhub/plugin"
     # 不加载到工具箱的插件 ID
     disabled_plugins: list[str] = field(default_factory=list)
 
@@ -161,6 +163,10 @@ class AppConfig:
             display_name=str(raw.get("display_name", "")),
             role=str(raw.get("role", "user")),
             demo_mode=bool(raw.get("demo_mode", False)),
+            plugin_market_url=str(
+                raw.get("plugin_market_url")
+                or "http://47.108.130.177:8001/nexhub/plugin"
+            ),
             disabled_plugins=[
                 str(item)
                 for item in raw.get("disabled_plugins", [])

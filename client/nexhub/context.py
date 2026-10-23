@@ -9,12 +9,12 @@ from .api_client import ApiClient
 from .compat import FEATURE_PROFILE_UPDATE, ServerCompatibility
 from .config import AppConfig
 from .embedded_server import EmbeddedServer
-from .plugins.memory_plugin import MemoryOptimizerPlugin
 from .services.demo_store import DemoStore
 from .services.credential_store import CredentialStore
 from .services.device_service import DeviceService
 from .services.download_service import DownloadService
 from .services.plugin_manager import PluginManager
+from .services.plugin_processes import PluginProcessManager
 from .services.rdp_service import RdpService
 from .services.share_service import ShareService
 from .services.tunnel_service import TunnelService
@@ -52,8 +52,9 @@ class AppContext(QObject):
         self.devices = DeviceService(config, self.api)
         self.tunnels = TunnelService(config, self.api, self.demo)
         self.plugins = PluginManager(set(config.disabled_plugins))
-        self.plugins.register(MemoryOptimizerPlugin())
         self.plugins.reload_custom()
+        self.plugin_processes = PluginProcessManager(self)
+        self.theme.theme_changed.connect(self._sync_plugin_theme)
         self.main_window: "MainWindow | None" = None
         self._shutdown_done = False
         self.devices.start()
@@ -166,6 +167,9 @@ class AppContext(QObject):
         self.server_compat_changed.emit(compatibility)
         return compatibility
 
+    def _sync_plugin_theme(self, _theme: str) -> None:
+        self.plugin_processes.set_theme(self.theme.effective_theme)
+
     def logout(self) -> None:
         """停止心跳并立即回到演示模式。"""
         self.devices.stop()
@@ -179,9 +183,12 @@ class AppContext(QObject):
             return
         self._shutdown_done = True
         try:
-            self.devices.stop()
+            self.plugin_processes.stop_all()
         finally:
             try:
-                self.embedded.stop()
+                self.devices.stop()
             finally:
-                self.api.close()
+                try:
+                    self.embedded.stop()
+                finally:
+                    self.api.close()

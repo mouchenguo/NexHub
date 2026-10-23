@@ -18,6 +18,8 @@ python -m PyInstaller ^
   --icon "nexhub\resources\nexhub.ico" ^
   --add-data "nexhub\resources;nexhub\resources" ^
   --collect-all qfluentwidgets ^
+  --hidden-import nexhub.plugin_host ^
+  --hidden-import nexhub.services.memory_optimizer ^
   --hidden-import nexhub.npc_admin ^
   --hidden-import win32crypt ^
   main.py

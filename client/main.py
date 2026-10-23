@@ -71,6 +71,18 @@ def _try_auto_login(config: AppConfig) -> dict | None:
     return result
 
 
+def _run_plugin_host_helper() -> int | None:
+    if "--plugin-host" not in sys.argv:
+        return None
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--plugin-host", required=True)
+    parser.add_argument("--theme", default="dark")
+    args, _ = parser.parse_known_args()
+    from nexhub.plugin_host import run_plugin_host
+
+    return run_plugin_host(Path(args.plugin_host), args.theme)
+
+
 def _run_npc_admin_helper() -> int | None:
     """UAC 提权后以隐藏模式执行 NPC 安装/写配置/重启。"""
     if "--npc-admin" not in sys.argv:
@@ -98,6 +110,9 @@ def _setup_logging() -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    plugin_exit = _run_plugin_host_helper()
+    if plugin_exit is not None:
+        return plugin_exit
     helper_exit = _run_npc_admin_helper()
     if helper_exit is not None:
         return helper_exit

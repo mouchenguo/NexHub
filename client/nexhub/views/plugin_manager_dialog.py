@@ -35,7 +35,7 @@ class PluginManagerDialog(QDialog):
         layout.setSpacing(10)
         layout.addWidget(TitleLabel("管理插件"))
         hint = CaptionLabel(
-            "取消勾选后，插件不会在工具箱中创建界面；设置会保存到本地配置。"
+            "取消勾选后，插件会从工具箱「已安装」列表隐藏；插件包仍保留在插件目录。"
         )
         hint.setWordWrap(True)
         layout.addWidget(hint)
@@ -71,7 +71,7 @@ class PluginManagerDialog(QDialog):
         check.setChecked(plugin.plugin_id not in self.ctx.plugins.disabled_ids)
         self._checks[plugin.plugin_id] = check
         row_layout.addWidget(check, 1)
-        source = "自定义" if self.ctx.plugins.is_custom(plugin.plugin_id) else "内置"
+        source = "外部插件" if self.ctx.plugins.is_custom(plugin.plugin_id) else "内置"
         info = CaptionLabel(f"{plugin.plugin_id} · {source} · v{plugin.version}")
         row_layout.addWidget(info)
         row.setToolTip(plugin.description)
@@ -85,6 +85,8 @@ class PluginManagerDialog(QDialog):
         }
         self.ctx.plugins.set_enabled_ids(enabled_ids)
         all_ids = {plugin.plugin_id for plugin in self.ctx.plugins.all_plugins()}
+        for plugin_id in all_ids - enabled_ids:
+            self.ctx.plugin_processes.stop(plugin_id)
         self.ctx.config.disabled_plugins = sorted(all_ids - enabled_ids)
         self.ctx.config.save()
         self.accept()

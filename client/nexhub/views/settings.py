@@ -28,6 +28,7 @@ from ..compat import ServerCompatibility
 from ..config import build_server_url, normalize_server_url, split_server_url
 from ..paths import VERSION, app_data_dir, config_path
 from ..services.update_service import UpdateInfo, check_for_updates
+from ..services.plugin_market import normalize_market_url
 from ..widgets.common import (
     Banner,
     FolderDetail,
@@ -65,6 +66,7 @@ class SettingsPage(BasePage):
         self._build_server()
         self._build_npc()
         self._build_transfer()
+        self._build_plugins()
         self._build_about()
         self._build_navigation()
         self._sync_theme_segment()
@@ -444,6 +446,65 @@ class SettingsPage(BasePage):
         if folder:
             self.download_edit.setText(folder)
 
+    # ------------------------------------------------------------------ 插件广场
+    def _build_plugins(self) -> None:
+        content, layout = self._group_content()
+        self.plugin_market_edit = LineEdit()
+        self.plugin_market_edit.setText(self.ctx.config.plugin_market_url)
+        self.plugin_market_edit.setPlaceholderText(
+            "例如 47.108.130.177:8001/nexhub/plugin"
+        )
+        layout.addLayout(
+            form_field(
+                "插件广场 API 地址",
+                self.plugin_market_edit,
+                "支持 HTTP/HTTPS；保存后立即用于插件工具箱的广场数据源。",
+            )
+        )
+        layout.addWidget(
+            Banner(
+                "插件包必须包含 manifest.json 与 plugin.py，并在独立进程中运行。",
+                FIF.INFO,
+            )
+        )
+        actions = QHBoxLayout()
+        actions.addStretch(1)
+        actions.addWidget(
+            make_button(
+                "保存插件广场地址",
+                primary=True,
+                icon=FIF.SAVE,
+                on_click=self._save_plugin_market,
+            )
+        )
+        layout.addLayout(actions)
+        self._add_group(
+            FIF.DEVELOPER_TOOLS,
+            "插件广场",
+            "远程插件清单、安装源与独立进程运行",
+            content,
+        )
+
+    def _save_plugin_market(self) -> None:
+        url = normalize_market_url(self.plugin_market_edit.text())
+        if not url:
+            InfoBar.error(
+                "地址无效",
+                "请填写插件广场 API 地址",
+                parent=self,
+                position=InfoBarPosition.TOP,
+            )
+            return
+        self.ctx.config.plugin_market_url = url
+        self.ctx.config.save()
+        self.plugin_market_edit.setText(url)
+        InfoBar.success(
+            "已保存",
+            "插件广场地址已更新，返回工具箱后刷新即可生效",
+            parent=self,
+            position=InfoBarPosition.TOP_RIGHT,
+        )
+
     def _save_transfer(self) -> None:
         folder = Path(self.download_edit.text().strip()).expanduser()
         try:
@@ -466,6 +527,8 @@ class SettingsPage(BasePage):
     def refresh(self) -> None:
         if hasattr(self, "server_host_edit"):
             self._sync_server_fields()
+        if hasattr(self, "plugin_market_edit"):
+            self.plugin_market_edit.setText(self.ctx.config.plugin_market_url)
         if hasattr(self, "npc_panel"):
             self.npc_panel.refresh()
 

@@ -58,7 +58,7 @@ def _resolve_path(raw: str, default: Path) -> Path:
 @dataclass
 class Settings:
     app_name: str = "NexHub Server"
-    version: str = "0.1.2-beta"
+    version: str = "0.1.3-beta"
     base_dir: Path = BASE_DIR
     templates_dir: Path = BASE_DIR / "app" / "templates"
     static_dir: Path = BASE_DIR / "app" / "static"
