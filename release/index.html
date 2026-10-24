@@ -130,15 +130,16 @@
     <main>
       <section class="hero">
         <div>
-          <div class="badge"><span class="dot"></span> v0.1.5-beta 预发行</div>
+          <div class="badge"><span class="dot"></span> v0.1.6-beta 预发行</div>
           <h1>把文件与远程桌面<br><span>放进同一个工作台</span></h1>
           <p class="lead">NexHub 是面向 Windows 的共享与远程主机客户端：文件共享、OSS 长期缓存、临时穿透、RDP 主机、同账号在线设备和 NPS 隧道集中管理。</p>
           <div class="actions" id="download">
-            <a class="btn btn-primary" href="NexHub-v0.1.5-beta.exe" download>↓ 下载 Windows 客户端</a>
+            <a class="btn btn-primary" href="NexHub-Setup-0.1.6-beta.exe" download>↓ 下载 Windows 安装包</a>
+            <a class="btn btn-ghost" href="NexHub-v0.1.6-beta.exe" download>旧客户端单文件</a>
             <a class="btn btn-ghost" href="NexHub-Server-Deploy.zip">服务端一键部署包</a>
             <a class="btn btn-ghost" href="latest.json">查看更新信息</a>
           </div>
-          <div class="meta">Windows 10 / 11 · 单文件安装包 · 当前预发行版 v0.1.5-beta</div>
+          <div class="meta">Windows 10 / 11 · 安装包 / 单文件回退 / 便携版 · 当前预发行版 v0.1.6-beta</div>
         </div>
         <div class="preview" aria-hidden="true">
           <div class="preview-inner">
@@ -166,7 +167,7 @@
           <div class="card"><div class="icon">↗</div><h3>NPS 内网穿透</h3><p>一键自动配置 NPC：服务器创建主机与隧道，客户端写入配置并重启服务。</p></div>
           <div class="card"><div class="icon">⟳</div><h3>服务端检查更新</h3><p>管理后台读取 GitHub Releases，显示版本、部署包与 SHA-256，不自动覆盖服务端。</p></div>
           <div class="card"><div class="icon">⌘</div><h3>版本兼容握手</h3><p>客户端与服务端交换 API 版本和能力；旧服务端降级核心功能，过低客户端明确提示升级。</p></div>
-          <div class="card"><div class="icon">✦</div><h3>插件广场</h3><p>远程浏览、安装、更新和卸载插件；插件在独立进程运行，支持内存优化与域名定向加速。</p></div>
+          <div class="card"><div class="icon">✦</div><h3>插件广场</h3><p>远程浏览、安装、更新和卸载插件；插件在独立进程运行，支持内存优化与Clash-Verge内置版。</p></div>
           <div class="card"><div class="icon">◎</div><h3>注册与审核</h3><p>客户端内直接注册，服务端默认自动审核；也可切换人工审核并在后台通过或拒绝。</p></div>
           <div class="card"><div class="icon">◐</div><h3>轻量本地数据</h3><p>配置保存在本机，登录凭证加密存储；关闭窗口后可通过托盘继续运行。</p></div>
         </div>
@@ -184,13 +185,13 @@
             </ul>
           </div>
           <div class="card" id="notes">
-            <div class="eyebrow">Release Notes</div><h2 style="font-size:24px;margin-bottom:16px">v0.1.5-beta</h2>
+            <div class="eyebrow">Release Notes</div><h2 style="font-size:24px;margin-bottom:16px">v0.1.6-beta</h2>
             <ul class="changelog">
-              <li>工具箱插件支持快捷操作：内存优化可直接点击“优化内存”，代理可直接启用/停用并选择节点。</li>
-              <li>插件继续在独立宿主进程运行，快捷操作通过宿主控制通道执行，不把插件代码导入主程序。</li>
-              <li>NPS 客户端（主机）与 TCP 隧道拆分：创建隧道不再重复创建主机，删除隧道不会再删除共享 vkey。</li>
-              <li>隧道管理新增主机列表和“新建主机”入口；旧隧道自动迁移为可复用主机记录。</li>
-              <li>插件后台运行/配置窗口开关、插件广场和审核系统继续保留。</li>
+              <li>Clash-Verge内置版插件升级到 1.4.2：自动同步本机 Clash Verge 661 条规则，规则模式、自定义网站和订阅导入并存。</li>
+              <li>节点选择内嵌到插件窗口和工具箱卡片，使用 Clash Verge 风格四色延迟；测速改为 10 路并发、10 秒超时并取两次最小值。</li>
+              <li>插件包内置 Country.mmdb，GEOIP 规则不依赖 Clash Verge 目录；卸载插件会同时清理数据目录。</li>
+              <li>工具箱状态与节点延迟显示优化，移除重复系统代理开关和配置预览卡片。</li>
+              <li>v0.1.5 单文件客户端继续保留优化后的 legacy onefile 回退资产；新客户端使用安装包或 onedir 便携版。</li>
             </ul>
           </div>
         </div>
@@ -198,10 +199,9 @@
     </main>
 
     <footer>
-      <span>NexHub v0.1.5-beta · 文件共享与远程主机 · <a href="https://github.com/mouchenguo/NexHub" target="_blank" rel="noreferrer">GitHub</a></span>
+      <span>NexHub v0.1.6-beta · 文件共享与远程主机 · <a href="https://github.com/mouchenguo/NexHub" target="_blank" rel="noreferrer">GitHub</a></span>
       <span>更新清单：<a href="latest.json"><code>latest.json</code></a></span>
     </footer>
   </div>
 </body>
 </html>
-

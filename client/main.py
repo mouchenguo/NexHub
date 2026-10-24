@@ -16,6 +16,7 @@ CLIENT_ROOT = Path(__file__).resolve().parent
 if str(CLIENT_ROOT) not in sys.path:
     sys.path.insert(0, str(CLIENT_ROOT))
 
+from PyQt6.QtCore import QTimer
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import QApplication
 
@@ -121,6 +122,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="NexHub Windows 客户端")
     parser.add_argument("--demo", action="store_true", help="强制进入演示预览模式")
     parser.add_argument("--reset-config", action="store_true", help="重置本地配置")
+    parser.add_argument(
+        "--autostart",
+        action="store_true",
+        help="由开机自启任务启动，启动后最小化到系统托盘",
+    )
     args = parser.parse_args(argv)
 
     _setup_logging()
@@ -156,6 +162,9 @@ def main(argv: list[str] | None = None) -> int:
     window = MainWindow(ctx)
     instance.show_requested.connect(window.restore_from_tray)
     window.show()
+    if args.autostart:
+        # 开机自启只驻留托盘，不抢当前桌面焦点。
+        QTimer.singleShot(0, lambda: window.hide_to_tray(notify=False))
     if instance.consume_pending_show():
         window.restore_from_tray()
 

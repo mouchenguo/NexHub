@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Callable
 
 from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QHBoxLayout, QSizePolicy, QVBoxLayout, QWidget
 from qfluentwidgets import (
     BodyLabel,
@@ -38,6 +39,41 @@ def status_pill(text: str, icon: FIF | None = None) -> PillPushButton:
         pill.setIcon(icon)
     pill.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
     return pill
+
+
+def latency_text(value) -> tuple[str, QColor]:
+    """节点延迟文本与颜色，与插件内保持一致（绿/蓝/黄/红）。"""
+    if value is None or value == "":
+        return "未测", QColor("#8b949e")
+    try:
+        latency = int(value)
+    except (TypeError, ValueError):
+        return "未测", QColor("#8b949e")
+    if latency < 0:
+        return "超时", QColor("#f85149")
+    if latency < 250:
+        return f"{latency} ms", QColor("#3fb950")
+    if latency < 400:
+        return f"{latency} ms", QColor("#58a6ff")
+    return f"{latency} ms", QColor("#d29922")
+
+
+def latency_dot(value) -> str:
+    """四色延迟圆点，用于 ComboBox 等无法逐项设置前景色的控件。"""
+    text, _color = latency_text(value)
+    if text == "未测":
+        return "⚪"
+    if text == "超时":
+        return "🔴"
+    try:
+        latency = int(value)
+    except (TypeError, ValueError):
+        return "⚪"
+    if latency < 250:
+        return "🟢"
+    if latency < 400:
+        return "🔵"
+    return "🟡"
 
 
 def make_button(

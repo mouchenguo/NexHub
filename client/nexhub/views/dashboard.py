@@ -107,7 +107,6 @@ class DashboardPage(BasePage):
         for key, label in (
             ("ecs", "ECS API"),
             ("nps", "nps 穿透"),
-            ("local", "本地文件服务"),
             ("version", "客户端版本"),
         ):
             row = QHBoxLayout()
@@ -206,9 +205,6 @@ class DashboardPage(BasePage):
         self.status_labels["ecs"].setText("已连接" if self.ctx.online else "离线体验")
         self.status_labels["nps"].setText(
             "已配置" if self.ctx.config.nps.server_addr else "未配置"
-        )
-        self.status_labels["local"].setText(
-            "运行中" if self.ctx.embedded.running else "未启动"
         )
         self.status_labels["version"].setText(f"v{VERSION}")
         if self.ctx.online:

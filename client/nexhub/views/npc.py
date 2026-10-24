@@ -517,7 +517,6 @@ class NpcSettingsPanel(QWidget):
         self._apply_npc_fields_to_config(
             self.server_edit.text().strip(), self.vkey_edit.text().strip()
         )
-        self.ctx.config.nps.local_port = self.ctx.config.local_api_port
         self.ctx.config.save()
 
     def _apply_npc_fields_to_config(self, server_addr: str, vkey: str) -> None:

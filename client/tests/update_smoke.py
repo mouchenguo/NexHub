@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import sys
 import threading
@@ -20,6 +21,8 @@ sys.path.insert(0, str(CLIENT_ROOT))
 from nexhub.config import AppConfig  # noqa: E402
 from nexhub.services.update_service import (  # noqa: E402
     UpdateInfo,
+    _program_files_install_target,
+    build_installer_script,
     build_updater_script,
     check_for_updates,
     download_update,
@@ -37,6 +40,18 @@ def main() -> int:
     check(
         version_key("0.1.2-beta") < version_key("0.1.2") < version_key("1.0.0"),
         "beta 版本比较",
+    )
+    expected_install = (
+        Path(os.environ.get("ProgramFiles") or r"C:\Program Files")
+        / "NexHub"
+        / "NexHub.exe"
+    )
+    check(
+        _program_files_install_target(
+            Path(r"D:\Downloads\NexHub-v0.1.5-beta.exe")
+        )
+        == expected_install,
+        "更新安装目标为 Program Files\\NexHub\\NexHub.exe",
     )
     payload = b"NexHub fake update payload\n"
     digest = hashlib.sha256(payload).hexdigest().upper()
@@ -109,6 +124,41 @@ def main() -> int:
             and "%NEXHUB_UPDATE_TARGET%" in content
             and "copy /Y" in content,
             "生成更新替换脚本",
+        )
+        installer = DATA / "NexHub-Setup-9.9.9-beta.exe"
+        installer.write_bytes(payload)
+        installer_digest = hashlib.sha256(payload).hexdigest().upper()
+        (downloads / "latest.json").write_text(
+            json.dumps(
+                {
+                    "version": "9.9.9-beta",
+                    "download_url": "NexHub-test.exe",
+                    "installer_url": installer.name,
+                    "installer_sha256": installer_digest,
+                    "sha256": digest,
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        installer_info = check_for_updates(config, timeout=5)
+        check(
+            installer_info.installer
+            and installer_info.download_url.endswith("/" + installer.name)
+            and installer_info.sha256 == installer_digest,
+            "优先选择 Inno Setup 安装包且使用安装包校验值",
+        )
+        installer_script = build_installer_script(
+            installer,
+            DATA / "Program Files" / "NexHub" / "NexHub.exe",
+            DATA / "install-installer.cmd",
+        )
+        installer_content = installer_script.read_text(encoding="ascii")
+        check(
+            "/VERYSILENT" in installer_content
+            and "/DIR=\"%TARGET_DIR%\"" in installer_content
+            and "if exist \"%TARGET%\"" in installer_content,
+            "生成 Inno Setup 安装更新脚本",
         )
     finally:
         server.shutdown()

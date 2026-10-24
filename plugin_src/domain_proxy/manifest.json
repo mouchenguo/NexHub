@@ -1,11 +1,16 @@
 {
   "id": "domain_proxy",
-  "name": "域名定向加速",
-  "version": "1.1.0",
-  "description": "仅让白名单域名通过本地代理转发，其他流量直连；不修改系统代理。",
-  "requirements": "requests>=2.31",
+  "name": "Clash-Verge内置版",
+  "version": "1.4.2",
+  "description": "Clash Verge 风格规则分流；自动同步本机 Clash Verge 规则，节点选择、并发测速和系统代理一站式完成。",
+  "requirements": "requests>=2.31, pyyaml>=6",
   "controls": [
-    {"id": "enabled", "type": "switch", "label": "启用代理"},
-    {"id": "node", "type": "select", "label": "节点", "options": "nodes"}
+    {"id": "enabled", "type": "switch", "label": "系统代理"},
+    {"id": "node", "type": "select", "label": "节点", "options": "nodes"},
+    {"id": "mode", "type": "select", "label": "模式", "options": [
+      {"value": "rule", "label": "规则"},
+      {"value": "global", "label": "全局"},
+      {"value": "custom", "label": "自定义"}
+    ]}
   ]
 }

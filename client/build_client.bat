@@ -13,7 +13,7 @@ python -m pip install -r requirements-build.txt
 if errorlevel 1 exit /b 1
 
 python -m PyInstaller ^
-  --noconfirm --clean --onefile --windowed ^
+  --noconfirm --clean --onedir --windowed ^
   --name NexHub ^
   --icon "nexhub\resources\nexhub.ico" ^
   --add-data "nexhub\resources;nexhub\resources" ^
@@ -22,10 +22,11 @@ python -m PyInstaller ^
   --hidden-import nexhub.services.memory_optimizer ^
   --hidden-import nexhub.npc_admin ^
   --hidden-import win32crypt ^
+  --hidden-import yaml ^
   main.py
 
 if errorlevel 1 exit /b 1
 echo.
-echo Built: %CD%\dist\NexHub.exe
-echo NPC resources are embedded in the onefile executable.
+echo Built folder: %CD%\dist\NexHub\NexHub.exe
+echo Use tools\build_client_release.ps1 to create the portable zip and Inno installer.
 pause

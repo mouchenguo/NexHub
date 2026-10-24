@@ -1,29 +1,29 @@
 {
   "plugins": [
     {
-      "id": "1",
+      "id": "memory_optimizer",
       "name": "内存优化",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "description": "回收进程工作集，释放闲置内存，适合长期开机的工作站。",
       "requirements": "psutil>=5.9",
       "category": "系统工具",
       "glyph": "◍",
       "download_url": "downloads/memory_optimizer.zip",
-      "sha256": "538EAC8D135D22092543C62A104DA1A371B1AC82B6098CF7B031268878C00DA7",
-      "size": 5385,
+      "sha256": "3174164B7222B78C313D25B5AA663CE0FE466BFFC00686AEF4E3B42B04C3D81E",
+      "size": 5395,
       "icon_url": "icons/memory_optimizer.png"
     },
     {
       "id": "domain_proxy",
-      "name": "域名定向加速",
-      "version": "1.1.0",
-      "description": "仅让白名单域名通过本地代理转发，其他流量直连；不修改系统代理。",
-      "requirements": "requests>=2.31",
+      "name": "Clash-Verge内置版",
+      "version": "1.4.2",
+      "description": "Clash Verge 风格规则分流；自动同步本机 Clash Verge 规则，节点选择、并发测速和系统代理一站式完成。",
+      "requirements": "requests>=2.31, pyyaml>=6",
       "category": "网络工具",
       "glyph": "↗",
       "download_url": "downloads/domain_proxy.zip",
-      "sha256": "C5DA51FA7A15EE7238891755D78C42C2457D0B13F9485FA9831956D7507C350D",
-      "size": 22346958,
+      "sha256": "C8A083CED1F748D09E444BB9AB3206AAAA7B14EEA9242EBCD97F440A2A887EBF",
+      "size": 26157448,
       "icon_url": "icons/domain_proxy.png"
     }
   ]

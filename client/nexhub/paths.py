@@ -1,6 +1,8 @@
 """应用路径与版本信息。
 
-所有可写数据统一放在 ``%APPDATA%\\NexHub``；测试时可通过
+安装后的程序文件位于 ``C:\\Program Files\\NexHub``（由 Inno Setup 安装），
+可写数据统一放在 ``%APPDATA%\\NexHub``。Program Files 默认不可写，因此
+配置、日志、插件和演示数据不能放在程序目录。测试时可通过
 ``NEXHUB_DATA_DIR`` 环境变量重定向，避免污染真实配置。
 """
 from __future__ import annotations
@@ -10,9 +12,20 @@ import sys
 from pathlib import Path
 
 APP_NAME = "NexHub"
-VERSION = "0.1.5-beta"
+VERSION = "0.1.6-beta"
 CLIENT_ROOT = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = CLIENT_ROOT.parent
+
+
+def install_dir() -> Path:
+    """返回程序文件目录。
+
+    PyInstaller onedir 打包后是 ``...\\NexHub\\NexHub.exe`` 的父目录；
+    源码运行时是 ``client`` 目录。该目录只读，不应写入用户数据。
+    """
+    if bool(getattr(sys, "frozen", False)):
+        return Path(sys.executable).resolve().parent
+    return CLIENT_ROOT
 
 
 def app_data_dir() -> Path:
@@ -62,9 +75,9 @@ def default_download_dir() -> Path:
 def resource_path(name: str) -> Path:
     """返回内置资源目录。
 
-    源码运行时是 ``client/nexhub/resources/<name>``；PyInstaller onefile
-    运行时从 ``sys._MEIPASS/nexhub/resources/<name>`` 读取。NPC 程序通过
-    ``--add-data "nexhub\\resources;nexhub\\resources"`` 一起打包。
+    源码运行时是 ``client/nexhub/resources/<name>``；PyInstaller
+    onedir/onefile 运行时从 ``sys._MEIPASS/nexhub/resources/<name>`` 读取。
+    NPC 程序通过 ``--add-data "nexhub\\resources;nexhub\\resources"`` 一起打包。
     """
     bundle_root = Path(getattr(sys, "_MEIPASS", CLIENT_ROOT))
     candidates = [

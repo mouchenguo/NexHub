@@ -453,14 +453,15 @@ class MainWindow(FluentWindow):
         ):
             self.restore_from_tray()
 
-    def hide_to_tray(self) -> None:
+    def hide_to_tray(self, *, notify: bool = True) -> None:
         if self._allow_close:
             return
         if self._tray is None:
-            self.request_quit()
+            if notify:
+                self.request_quit()
             return
         self.hide()
-        if not self._tray_notified:
+        if notify and not self._tray_notified:
             self._tray_notified = True
             self._tray.showMessage(
                 "NexHub 仍在运行",

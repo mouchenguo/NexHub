@@ -24,39 +24,79 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt -r requirements-build.txt
 
-      - name: Build NexHub.exe
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build NexHub onedir
         working-directory: client
         run: |
-          python -m PyInstaller --noconfirm --clean --onefile --windowed --name NexHub --icon "nexhub\resources\nexhub.ico" --add-data "nexhub\resources;nexhub\resources" --collect-all qfluentwidgets --hidden-import nexhub.plugin_host --hidden-import nexhub.services.memory_optimizer --hidden-import nexhub.npc_admin --hidden-import win32crypt main.py
+          python -m PyInstaller --noconfirm --clean --onedir --windowed --name NexHub --icon "nexhub\resources\nexhub.ico" --add-data "nexhub\resources;nexhub\resources" --collect-all qfluentwidgets --hidden-import nexhub.plugin_host --hidden-import nexhub.services.memory_optimizer --hidden-import nexhub.npc_admin --hidden-import win32crypt --hidden-import yaml main.py
 
-      - name: Prepare single release executable
+      - name: Build legacy onefile for old clients
+        working-directory: client
+        run: |
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --noupx --optimize 2 --name NexHubLegacy --icon "nexhub\resources\nexhub.ico" --add-data "nexhub\resources;nexhub\resources" --collect-all qfluentwidgets --hidden-import nexhub.plugin_host --hidden-import nexhub.services.memory_optimizer --hidden-import nexhub.npc_admin --hidden-import win32crypt --hidden-import yaml --exclude-module setuptools --exclude-module pkg_resources --exclude-module pip --exclude-module wheel --exclude-module tkinter --exclude-module pytest --exclude-module numpy --exclude-module scipy --exclude-module PIL --exclude-module pandas --exclude-module matplotlib --distpath dist/legacy --workpath build/legacy main.py
+
+      - name: Build portable zip and installer
         shell: pwsh
         run: |
           $version = (Select-String -Path "client/nexhub/paths.py" -Pattern 'VERSION = "([^"]+)"').Matches.Groups[1].Value
-          Move-Item "client/dist/NexHub.exe" "client/dist/NexHub-v$version.exe" -Force
-          $exes = @(Get-ChildItem "client/dist" -Filter "*.exe")
-          if ($exes.Count -ne 1) {
-            throw "Expected exactly one release exe, found $($exes.Count)"
-          }
           "VERSION=$version" >> $env:GITHUB_ENV
+          $appDir = "client/dist/NexHub"
+          if (-not (Test-Path "$appDir/NexHub.exe")) {
+            throw "PyInstaller onedir output is missing NexHub.exe"
+          }
+          $legacy = "client/dist/NexHub-v$version.exe"
+          Move-Item "client/dist/legacy/NexHubLegacy.exe" $legacy -Force
+          if (-not (Test-Path $legacy)) {
+            throw "Legacy onefile output is missing: $legacy"
+          }
+          $portable = "client/dist/NexHub-v$version-win64.zip"
+          Compress-Archive -Path "$appDir/*" -DestinationPath $portable -Force
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            throw "Inno Setup compiler not found at $iscc"
+          }
+          & $iscc "/DMyAppVersion=$version" "client/installer/NexHub.iss"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Inno Setup failed with exit code $LASTEXITCODE"
+          }
+          $installer = "client/dist/installer/NexHub-Setup-$version.exe"
+          if (-not (Test-Path $installer)) {
+            throw "Installer output is missing: $installer"
+          }
+          "LEGACY=$legacy" >> $env:GITHUB_ENV
+          "PORTABLE=$portable" >> $env:GITHUB_ENV
+          "INSTALLER=$installer" >> $env:GITHUB_ENV
 
       - name: Refresh release manifest checksums
         shell: pwsh
         run: |
-          $exe = "client/dist/NexHub-v$env:VERSION.exe"
-          $exeSha = (Get-FileHash $exe -Algorithm SHA256).Hash
+          $legacySha = (Get-FileHash $env:LEGACY -Algorithm SHA256).Hash
+          $installerSha = (Get-FileHash $env:INSTALLER -Algorithm SHA256).Hash
+          $portableSha = (Get-FileHash $env:PORTABLE -Algorithm SHA256).Hash
           $serverSha = (Get-FileHash "release/NexHub-Server-Deploy.zip" -Algorithm SHA256).Hash
-          $env:NEXHUB_EXE_SHA = $exeSha
+          $env:NEXHUB_LEGACY_NAME = Split-Path $env:LEGACY -Leaf
+          $env:NEXHUB_INSTALLER_NAME = Split-Path $env:INSTALLER -Leaf
+          $env:NEXHUB_PORTABLE_NAME = Split-Path $env:PORTABLE -Leaf
+          $env:NEXHUB_LEGACY_SHA = $legacySha
+          $env:NEXHUB_INSTALLER_SHA = $installerSha
+          $env:NEXHUB_PORTABLE_SHA = $portableSha
           $env:NEXHUB_SERVER_SHA = $serverSha
-          python -c "import json, os, pathlib; p = pathlib.Path('release/latest.json'); d = json.loads(p.read_text(encoding='utf-8')); d['sha256'] = os.environ['NEXHUB_EXE_SHA']; d['server_sha256'] = os.environ['NEXHUB_SERVER_SHA']; p.write_text(json.dumps(d, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')"
-          Write-Host "Client SHA256: $exeSha"
+          python -c "import json, os, pathlib; p = pathlib.Path('release/latest.json'); d = json.loads(p.read_text(encoding='utf-8')); d['version'] = os.environ['VERSION']; d['download_url'] = os.environ['NEXHUB_LEGACY_NAME']; d['sha256'] = os.environ['NEXHUB_LEGACY_SHA']; d['installer_url'] = os.environ['NEXHUB_INSTALLER_NAME']; d['installer_sha256'] = os.environ['NEXHUB_INSTALLER_SHA']; d['installer'] = True; d['portable_url'] = os.environ['NEXHUB_PORTABLE_NAME']; d['portable_sha256'] = os.environ['NEXHUB_PORTABLE_SHA']; d['server_sha256'] = os.environ['NEXHUB_SERVER_SHA']; p.write_text(json.dumps(d, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')"
+          Write-Host "Legacy SHA256: $legacySha"
+          Write-Host "Installer SHA256: $installerSha"
+          Write-Host "Portable SHA256: $portableSha"
           Write-Host "Server SHA256: $serverSha"
 
-      - name: Upload build artifact
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: NexHub-Windows
-          path: client/dist/NexHub-v${{ env.VERSION }}.exe
+          path: |
+            client/dist/NexHub-v${{ env.VERSION }}.exe
+            client/dist/installer/NexHub-Setup-${{ env.VERSION }}.exe
+            client/dist/NexHub-v${{ env.VERSION }}-win64.zip
 
       - name: Publish GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
@@ -66,6 +106,8 @@ jobs:
           prerelease: ${{ !startsWith(env.VERSION, '1.0.0') }}
           files: |
             client/dist/NexHub-v${{ env.VERSION }}.exe
+            client/dist/installer/NexHub-Setup-${{ env.VERSION }}.exe
+            client/dist/NexHub-v${{ env.VERSION }}-win64.zip
             release/NexHub-Server-Deploy.zip
             release/NexHub-Server-Bundle.zip
             release/index.html

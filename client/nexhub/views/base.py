@@ -65,14 +65,12 @@ class BasePage(QWidget):
         self.header_actions = QHBoxLayout()
         self.header_actions.setSpacing(8)
         self.connection_pill = status_pill("离线体验", FIF.INFO)
-        self.local_pill = status_pill("本地服务 待命", FIF.SYNC)
         self.theme_button = icon_button(
             FIF.BRIGHTNESS,
             tooltip="切换深浅主题",
             on_click=self.ctx.theme.toggle,
         )
         self.header_actions.addWidget(self.connection_pill)
-        self.header_actions.addWidget(self.local_pill)
         self.header_actions.addWidget(self.theme_button)
         header.addLayout(self.header_actions)
         self.content_layout.addLayout(header)
@@ -86,9 +84,6 @@ class BasePage(QWidget):
         online = self.ctx.online
         self.connection_pill.setText("ECS 已连接" if online else "离线体验")
         self.connection_pill.setIcon(FIF.CONNECT if online else FIF.INFO)
-        running = self.ctx.embedded.running
-        self.local_pill.setText("本地服务 运行中" if running else "本地服务 待命")
-        self.local_pill.setIcon(FIF.SYNC if running else FIF.CLOUD_DOWNLOAD)
         target = "浅色" if self.ctx.theme.effective_theme == "dark" else "深色"
         self.theme_button.setToolTip(f"切换为{target}主题")
 

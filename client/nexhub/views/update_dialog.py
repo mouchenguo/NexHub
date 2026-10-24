@@ -47,9 +47,16 @@ class UpdateDialog(QDialog):
         layout.addWidget(
             CaptionLabel(
                 f"当前版本 v{self.info.current_version}。"
-                "自动安装会关闭 NexHub、替换当前程序并重新启动；账号和本地配置不会丢失。"
+                "自动安装会关闭 NexHub、运行安装包覆盖 Program Files 中的程序并重新启动；"
+                "账号、配置和插件数据保留在用户数据目录，不会丢失。"
             )
         )
+        if self.info.installer:
+            layout.addWidget(
+                CaptionLabel(
+                    "更新包为 Inno Setup 安装包；安装到 Program Files 时 Windows 可能弹出权限确认。"
+                )
+            )
         notes = "\n".join(f"• {item}" for item in self.info.notes[:6])
         if notes:
             body = CaptionLabel(notes)
@@ -98,7 +105,7 @@ class UpdateDialog(QDialog):
 
     def _on_downloaded(self, path: Path) -> None:
         try:
-            install_update(path)
+            install_update(path, installer=self.info.installer)
         except Exception as exc:  # noqa: BLE001 - 向用户展示安装失败原因
             self._on_failed(str(exc))
             return

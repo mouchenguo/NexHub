@@ -20,13 +20,18 @@ from qfluentwidgets import (
     InfoBarPosition,
     LineEdit,
     SegmentedWidget,
-    SpinBox,
+    SwitchButton,
 )
 
 from ..api_client import ApiClient
 from ..compat import ServerCompatibility
 from ..config import build_server_url, normalize_server_url, split_server_url
-from ..paths import VERSION, app_data_dir, config_path
+from ..paths import VERSION, app_data_dir, config_path, install_dir
+from ..services.autostart import (
+    autostart_enabled,
+    autostart_supported,
+    set_autostart,
+)
 from ..services.update_service import UpdateInfo, check_for_updates
 from ..services.plugin_market import normalize_market_url
 from ..widgets.common import (
@@ -55,6 +60,7 @@ class SettingsPage(BasePage):
         self._update_auto = False
         self._update_dialog: UpdateDialog | None = None
         self._syncing_theme = False
+        self._syncing_autostart = False
         self._folders: list[tuple[FIF, str, str, QWidget]] = []
         super().__init__(ctx, parent)
         self.ctx.theme.theme_changed.connect(self._sync_theme_segment)
@@ -63,6 +69,7 @@ class SettingsPage(BasePage):
     # ------------------------------------------------------------------
     def build(self) -> None:
         self._build_appearance()
+        self._build_startup()
         self._build_server()
         self._build_npc()
         self._build_transfer()
@@ -174,6 +181,71 @@ class SettingsPage(BasePage):
             self.theme_segment.setCurrentItem(self.ctx.config.theme)
         finally:
             self._syncing_theme = False
+
+    # ------------------------------------------------------------------ 启动
+    def _build_startup(self) -> None:
+        content, layout = self._group_content()
+        row = QWidget()
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.setSpacing(12)
+        text_layout = QVBoxLayout()
+        text_layout.setSpacing(3)
+        text_layout.addWidget(BodyLabel("开机自动启动"))
+        hint_text = "登录 Windows 后自动启动 NexHub，并最小化到系统托盘。"
+        if not autostart_supported():
+            hint_text = "当前系统不支持 Windows 开机自启。"
+        hint = CaptionLabel(hint_text)
+        hint.setWordWrap(True)
+        text_layout.addWidget(hint)
+        row_layout.addLayout(text_layout, 1)
+
+        self.autostart_switch = SwitchButton()
+        self.autostart_switch.setChecked(autostart_enabled())
+        self.autostart_switch.setEnabled(autostart_supported())
+        self.autostart_switch.checkedChanged.connect(self._on_autostart_changed)
+        row_layout.addWidget(self.autostart_switch, 0, Qt.AlignmentFlag.AlignVCenter)
+        layout.addWidget(row)
+
+        location = CaptionLabel(
+            f"程序目录：{install_dir()}\n"
+            f"用户数据：{app_data_dir()}（配置、日志和插件数据必须可写，"
+            "因此保留在 AppData）"
+        )
+        location.setWordWrap(True)
+        location.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        layout.addWidget(location)
+        self._add_group(
+            FIF.PLAY,
+            "启动",
+            "开机自启与程序安装位置",
+            content,
+        )
+
+    def _on_autostart_changed(self, enabled: bool) -> None:
+        if self._syncing_autostart:
+            return
+        try:
+            set_autostart(bool(enabled))
+        except Exception as exc:  # noqa: BLE001 - 向用户展示注册表/权限错误
+            self._syncing_autostart = True
+            try:
+                self.autostart_switch.setChecked(not enabled)
+            finally:
+                self._syncing_autostart = False
+            InfoBar.error(
+                "开机自启设置失败",
+                str(exc),
+                parent=self,
+                position=InfoBarPosition.TOP_RIGHT,
+            )
+            return
+        InfoBar.success(
+            "已保存",
+            "已开启开机自启" if enabled else "已关闭开机自启",
+            parent=self,
+            position=InfoBarPosition.TOP_RIGHT,
+        )
 
     # ------------------------------------------------------------------ 服务器
     def _build_server(self) -> None:
@@ -407,17 +479,6 @@ class SettingsPage(BasePage):
             make_button("浏览...", icon=FIF.FOLDER, on_click=self._choose_download)
         )
         layout.addLayout(form_field("默认下载路径", path_widget, "下载弹窗会默认使用该目录"))
-
-        self.local_port = SpinBox()
-        self.local_port.setRange(1024, 65535)
-        self.local_port.setValue(self.ctx.config.local_api_port)
-        layout.addLayout(
-            form_field(
-                "本地服务端口",
-                self.local_port,
-                "临时共享内嵌 FastAPI 监听 127.0.0.1；修改后需重启客户端",
-            )
-        )
         layout.addWidget(
             Banner(
                 "OSS 上传/删除/容量统计全部由 ECS 后端代理，客户端不保存云端密钥。",
@@ -434,8 +495,8 @@ class SettingsPage(BasePage):
         layout.addLayout(actions)
         self._add_group(
             FIF.DOWNLOAD,
-            "传输与本地服务",
-            "下载目录、本地端口与 OSS 代理说明",
+            "下载与传输",
+            "下载目录与 OSS 后端代理说明",
             content,
         )
 
@@ -513,8 +574,6 @@ class SettingsPage(BasePage):
             InfoBar.error("无法创建目录", str(exc), parent=self, position=InfoBarPosition.TOP)
             return
         self.ctx.config.download_dir = str(folder)
-        self.ctx.config.local_api_port = self.local_port.value()
-        self.ctx.config.nps.local_port = self.local_port.value()
         self.ctx.config.save()
         self.download_edit.setText(str(folder))
         InfoBar.success(
@@ -527,6 +586,12 @@ class SettingsPage(BasePage):
     def refresh(self) -> None:
         if hasattr(self, "server_host_edit"):
             self._sync_server_fields()
+        if hasattr(self, "autostart_switch"):
+            self._syncing_autostart = True
+            try:
+                self.autostart_switch.setChecked(autostart_enabled())
+            finally:
+                self._syncing_autostart = False
         if hasattr(self, "plugin_market_edit"):
             self.plugin_market_edit.setText(self.ctx.config.plugin_market_url)
         if hasattr(self, "npc_panel"):
@@ -540,7 +605,8 @@ class SettingsPage(BasePage):
             ("UI 框架", "PyQt6-Fluent-Widgets"),
             ("服务器地址", self.ctx.config.server_url),
             ("配置文件", str(config_path())),
-            ("数据目录", str(app_data_dir())),
+            ("程序目录", str(install_dir())),
+            ("用户数据目录", str(app_data_dir())),
         ]
         for label, value in rows:
             row = QHBoxLayout()
@@ -562,6 +628,9 @@ class SettingsPage(BasePage):
         actions.addWidget(self.check_update_button)
         actions.addWidget(
             make_button("打开下载页", icon=FIF.GLOBE, on_click=self._open_download_page)
+        )
+        actions.addWidget(
+            make_button("打开程序目录", icon=FIF.APPLICATION, on_click=self._open_install_dir)
         )
         actions.addWidget(
             make_button("打开数据目录", icon=FIF.FOLDER, on_click=self._open_data_dir)
@@ -654,6 +723,9 @@ class SettingsPage(BasePage):
         else:
             target = f"{self.ctx.config.server_url.rstrip('/')}/downloads/"
         QDesktopServices.openUrl(QUrl(target))
+
+    def _open_install_dir(self) -> None:
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(install_dir())))
 
     def _open_data_dir(self) -> None:
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(app_data_dir())))

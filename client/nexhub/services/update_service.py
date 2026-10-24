@@ -28,6 +28,7 @@ class UpdateInfo:
     notes: list[str]
     published_at: str
     sha256: str
+    installer: bool = False
 
 
 def update_manifest_url(config: AppConfig) -> str:
@@ -71,13 +72,29 @@ def check_for_updates(config: AppConfig, timeout: int = 8) -> UpdateInfo:
     latest_version = str(data.get("version", "")).strip().lstrip("v")
     if not latest_version:
         raise ValueError("更新文件缺少 version 字段")
-    raw_download = str(data.get("download_url") or "").strip()
+    # 新客户端优先使用 Inno Setup 安装包；旧客户端仍读取 download_url
+    # 指向的单文件 exe，避免 0.1.5 及更早版本把 Setup.exe 当成主程序替换。
+    raw_installer = str(data.get("installer_url") or "").strip()
+    raw_download = str(
+        raw_installer or data.get("download_url") or ""
+    ).strip()
     raw_page = str(data.get("page_url") or "./").strip()
     download_url = urljoin(manifest_url, raw_download) if raw_download else ""
     page_url = urljoin(manifest_url, raw_page)
     notes = data.get("notes") or []
     if not isinstance(notes, list):
         notes = [str(notes)]
+    download_name = Path(unquote(urlsplit(download_url).path)).name.lower()
+    installer = bool(raw_installer) or bool(data.get("installer")) or str(
+        data.get("download_type") or ""
+    ).strip().lower() == "installer"
+    if not installer:
+        installer = "setup" in download_name or "installer" in download_name
+    sha256 = (
+        str(data.get("installer_sha256") or data.get("sha256") or "")
+        if raw_installer
+        else str(data.get("sha256") or "")
+    )
     return UpdateInfo(
         current_version=VERSION,
         latest_version=latest_version,
@@ -87,7 +104,8 @@ def check_for_updates(config: AppConfig, timeout: int = 8) -> UpdateInfo:
         manifest_url=manifest_url,
         notes=[str(item) for item in notes],
         published_at=str(data.get("published_at") or ""),
-        sha256=str(data.get("sha256") or ""),
+        sha256=sha256,
+        installer=installer,
     )
 
 
@@ -106,7 +124,12 @@ def download_update(info: UpdateInfo, target_dir: Path | None = None) -> Path:
     folder = (target_dir or Path(tempfile.gettempdir()) / "NexHubUpdates").resolve()
     folder.mkdir(parents=True, exist_ok=True)
     raw_name = Path(unquote(urlsplit(info.download_url).path)).name
-    filename = raw_name if raw_name.lower().endswith(".exe") else f"NexHub-v{info.latest_version}.exe"
+    if raw_name.lower().endswith(".exe"):
+        filename = raw_name
+    elif info.installer:
+        filename = f"NexHub-Setup-v{info.latest_version}.exe"
+    else:
+        filename = f"NexHub-v{info.latest_version}.exe"
     target = folder / filename
     part = target.with_suffix(target.suffix + ".part")
     digest = hashlib.sha256()
@@ -154,21 +177,64 @@ def build_updater_script(source: Path, target: Path, script_path: Path) -> Path:
     return script_path
 
 
-def install_update(downloaded: Path, current_exe: Path | None = None) -> Path:
-    """启动独立更新器，替换当前 exe 后重新启动客户端。"""
-    if not auto_update_supported():
-        raise RuntimeError("源码运行模式不支持自动安装，请使用下载页更新")
-    source = downloaded.resolve()
-    target = (current_exe or Path(sys.executable)).resolve()
-    if not source.is_file() or source.suffix.lower() != ".exe":
-        raise ValueError("更新文件无效")
-    if not target.is_file():
-        raise ValueError("找不到当前客户端程序")
-    folder = Path(tempfile.gettempdir()) / "NexHubUpdate"
-    script = build_updater_script(source, target, folder / "install-update.cmd")
+def _looks_like_installer(path: Path) -> bool:
+    name = path.name.lower()
+    return "setup" in name or "installer" in name
+
+
+def _program_files_install_target(current: Path) -> Path:
+    """安装包更新统一落到 Program Files；便携/AppData 版本也会迁移过去。"""
+    program_files = Path(
+        os.environ.get("ProgramFiles") or r"C:\Program Files"
+    )
+    standard = program_files / "NexHub"
+    standard_exe = standard / "NexHub.exe"
+    try:
+        if (
+            current.parent.resolve() == standard.resolve()
+            and current.name.lower() == standard_exe.name.lower()
+        ):
+            return current
+    except OSError:
+        pass
+    # 旧版单文件可能叫 NexHub-v0.1.5-beta.exe，但 Inno 安装后的主程序
+    # 固定是 NexHub.exe；更新器必须启动新文件名。
+    return standard_exe
+
+
+def build_installer_script(source: Path, target: Path, script_path: Path) -> Path:
+    """生成等待 Inno Setup 完成安装后重启客户端的批处理。"""
+    if source.resolve() == target.resolve():
+        raise ValueError("安装包与当前程序路径相同")
+    script_path.parent.mkdir(parents=True, exist_ok=True)
+    content = (
+        "@echo off\r\n"
+        "setlocal\r\n"
+        'set "SOURCE=%NEXHUB_UPDATE_SOURCE%"\r\n'
+        'set "TARGET=%NEXHUB_UPDATE_TARGET%"\r\n'
+        'set "TARGET_DIR=%NEXHUB_UPDATE_DIR%"\r\n'
+        'start "" /wait "%SOURCE%" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART '
+        '/CLOSEAPPLICATIONS /DIR="%TARGET_DIR%"\r\n'
+        'if exist "%TARGET%" start "" "%TARGET%"\r\n'
+        'del "%SOURCE%" >nul 2>&1\r\n'
+        'del "%~f0" >nul 2>&1\r\n'
+    )
+    script_path.write_text(content, encoding="ascii", newline="")
+    return script_path
+
+
+def _launch_update_script(
+    script: Path,
+    source: Path,
+    target: Path,
+    *,
+    install_target: Path | None = None,
+) -> None:
+    final_target = install_target or target
     env = os.environ.copy()
     env["NEXHUB_UPDATE_SOURCE"] = str(source)
-    env["NEXHUB_UPDATE_TARGET"] = str(target)
+    env["NEXHUB_UPDATE_TARGET"] = str(final_target)
+    env["NEXHUB_UPDATE_DIR"] = str(final_target.parent)
     flags = 0
     if os.name == "nt":
         flags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(
@@ -181,4 +247,41 @@ def install_update(downloaded: Path, current_exe: Path | None = None) -> Path:
         close_fds=True,
         creationflags=flags,
     )
+
+
+def install_update(
+    downloaded: Path,
+    current_exe: Path | None = None,
+    *,
+    installer: bool | None = None,
+) -> Path:
+    """启动独立更新器。
+
+    新版本优先使用 Inno Setup 安装包：静默覆盖 ``Program Files`` 下的
+    onedir 程序，然后重新启动客户端。旧版单文件 exe 仍保留兼容替换流程。
+    ``installer`` 来自更新清单；即使安装包文件名不含 Setup，也能走正确流程。
+    """
+    if not auto_update_supported():
+        raise RuntimeError("源码运行模式不支持自动安装，请使用下载页更新")
+    source = downloaded.resolve()
+    target = (current_exe or Path(sys.executable)).resolve()
+    if not source.is_file() or source.suffix.lower() != ".exe":
+        raise ValueError("更新文件无效")
+    if not target.is_file():
+        raise ValueError("找不到当前客户端程序")
+    folder = Path(tempfile.gettempdir()) / "NexHubUpdate"
+    is_installer = (
+        _looks_like_installer(source) if installer is None else bool(installer)
+    )
+    if is_installer:
+        install_target = _program_files_install_target(target)
+        script = build_installer_script(
+            source, install_target, folder / "install-installer-update.cmd"
+        )
+        _launch_update_script(
+            script, source, target, install_target=install_target
+        )
+    else:
+        script = build_updater_script(source, target, folder / "install-update.cmd")
+        _launch_update_script(script, source, target)
     return script

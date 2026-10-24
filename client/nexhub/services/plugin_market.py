@@ -15,7 +15,7 @@ from urllib.parse import urljoin
 
 import requests
 
-from ..paths import user_plugins_dir
+from ..paths import app_data_dir, user_plugins_dir
 from .plugin_manager import PluginRecord
 
 logger = logging.getLogger("nexhub.plugins")
@@ -236,4 +236,9 @@ def uninstall_plugin(plugin_id: str) -> None:
     if target.exists():
         shutil.rmtree(target)
         logger.info("uninstalled plugin %s", plugin_id)
+    # 卸载必须同时删除插件数据；否则重装后会复用旧规则、节点和系统代理状态。
+    data_dir = app_data_dir() / "plugin_data" / plugin_id
+    if data_dir.exists():
+        shutil.rmtree(data_dir, ignore_errors=True)
+        logger.info("removed plugin data %s", data_dir)
 

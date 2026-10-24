@@ -1,7 +1,7 @@
 {
-  "id": "1",
+  "id": "memory_optimizer",
   "name": "内存优化",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "回收进程工作集，释放闲置内存，适合长期开机的工作站。",
   "requirements": "psutil>=5.9",
   "controls": [

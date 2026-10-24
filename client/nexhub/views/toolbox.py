@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
     QFileDialog,
     QGridLayout,
     QHBoxLayout,
+    QSizePolicy,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -27,6 +28,7 @@ from qfluentwidgets import (
     SwitchButton,
 )
 
+from ..file_utils import human_size
 from ..paths import user_plugins_dir
 from ..services.plugin_manager import PluginRecord
 from ..services.plugin_market import (
@@ -38,6 +40,8 @@ from ..services.update_service import version_key
 from ..widgets.common import (
     ask_confirm,
     clear_layout,
+    latency_dot,
+    latency_text,
     make_button,
     make_card,
     status_pill,
@@ -197,8 +201,27 @@ class ToolboxPage(BasePage):
             self.installed_layout.addWidget(error)
         self.installed_layout.addStretch(1)
 
+    @staticmethod
+    def _plugin_status_pill(running: bool):
+        label = CaptionLabel(("● 运行中" if running else "● 关闭"))
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        label.setMinimumWidth(72)
+        label.setFixedHeight(24)
+        if running:
+            label.setStyleSheet(
+                "CaptionLabel { color: #3fb950; background-color: rgba(63, 185, 80, .10); "
+                "border: 1px solid rgba(63, 185, 80, .25); border-radius: 12px; padding: 1px 8px; }"
+            )
+        else:
+            label.setStyleSheet(
+                "CaptionLabel { color: #f85149; background-color: rgba(248, 81, 73, .10); "
+                "border: 1px solid rgba(248, 81, 73, .25); border-radius: 12px; padding: 1px 8px; }"
+            )
+        return label
+
     def _installed_card(self, record: PluginRecord) -> QWidget:
         card, layout = make_card(18, 10)
+        card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
         top = QHBoxLayout()
         top.setSpacing(12)
         top.addWidget(self._avatar(record.glyph, record.icon_path))
@@ -208,20 +231,34 @@ class ToolboxPage(BasePage):
         title_row.addWidget(StrongBodyLabel(record.name))
         title_row.addWidget(CaptionLabel(f"v{record.version}"))
         title_row.addStretch(1)
-        running = self.ctx.plugin_processes.is_running(record.plugin_id)
-        title_row.addWidget(
-            status_pill("运行中" if running else "未运行", FIF.PLAY if running else FIF.PAUSE)
-        )
         info.addLayout(title_row)
         description = CaptionLabel(record.description or "暂无简介")
         description.setWordWrap(True)
+        description.setSizePolicy(
+            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred
+        )
+        description.setMaximumWidth(620)
         info.addWidget(description)
         info.addWidget(CaptionLabel(f"ID：{record.plugin_id}"))
         top.addLayout(info, 1)
+        running = self.ctx.plugin_processes.is_running(record.plugin_id)
+        state = self._plugin_states.get(record.plugin_id, {}) if running else {}
+        if running and not state:
+            state = self.ctx.plugin_processes.state(record.plugin_id)
+            if state:
+                self._plugin_states[record.plugin_id] = state
+        # 有 enabled 状态的插件（如代理）用代理服务状态，不能把“插件宿主
+        # 已运行”误显示成绿色运行中。
+        service_running = (
+            bool(state.get("enabled")) if "enabled" in state else running
+        )
+        top.addWidget(
+            self._plugin_status_pill(service_running), 0, Qt.AlignmentFlag.AlignTop
+        )
+        layout.addLayout(top)
         actions = QHBoxLayout()
         actions.setSpacing(8)
         controls = record.controls
-        state = self._plugin_states.get(record.plugin_id, {}) if running else {}
         if controls:
             if (
                 running
@@ -234,6 +271,8 @@ class ToolboxPage(BasePage):
                 control_id = str(control.get("id") or "")
                 label = str(control.get("label") or control_id)
                 if kind == "button":
+                    if control_id == "choose_node" and state.get("node"):
+                        actions.addWidget(CaptionLabel(f"节点：{state['node']}"))
                     actions.addWidget(
                         make_button(
                             label,
@@ -257,33 +296,50 @@ class ToolboxPage(BasePage):
                 elif kind == "select":
                     actions.addWidget(CaptionLabel(label))
                     selector = ComboBox()
-                    options = state.get(str(control.get("options") or "")) or []
-                    names = [
-                        str(item.get("name"))
-                        for item in options
-                        if isinstance(item, dict) and item.get("name")
-                    ]
-                    if not names:
-                        selector.addItem("启用后加载节点")
+                    raw_options = control.get("options")
+                    if isinstance(raw_options, list):
+                        option_values: list[str] = []
+                        option_labels: list[str] = []
+                        for item in raw_options:
+                            if isinstance(item, dict):
+                                value = str(item.get("value") or item.get("label") or "")
+                                option_values.append(value)
+                                option_labels.append(str(item.get("label") or value))
+                            else:
+                                option_values.append(str(item))
+                                option_labels.append(str(item))
+                    else:
+                        raw_items = state.get(str(raw_options or "")) or []
+                        option_labels = []
+                        option_values = []
+                        for item in raw_items:
+                            if not isinstance(item, dict) or not item.get("name"):
+                                continue
+                            node_name = str(item.get("name"))
+                            text, _color = latency_text(item.get("latency"))
+                            option_values.append(node_name)
+                            option_labels.append(
+                                f"{latency_dot(item.get('latency'))} {text}    {node_name}"
+                            )
+                    if not option_labels:
+                        selector.addItem("启用后加载")
                         selector.setEnabled(False)
                     else:
-                        selector.addItems(names)
-                        current_name = str(state.get(control_id) or "")
-                        index = selector.findText(current_name)
-                        if index >= 0:
-                            selector.setCurrentIndex(index)
-                        selector.currentTextChanged.connect(
-                            lambda name, current=record, action=control_id: self._quick_action(
-                                current, action, {"value": name}
+                        selector.addItems(option_labels)
+                        current_value = str(state.get(control_id) or "")
+                        if current_value in option_values:
+                            selector.setCurrentIndex(option_values.index(current_value))
+                        selector.currentIndexChanged.connect(
+                            lambda index, current=record, action=control_id, values=option_values: self._quick_action(
+                                current, action, {"value": values[index]}
                             )
-                            if name != "启用后加载节点"
+                            if 0 <= index < len(values)
                             else None
                         )
-                    selector.setMinimumWidth(150)
+                    selector.setMinimumWidth(240 if control_id == "node" else 110)
                     actions.addWidget(selector)
         else:
-            switch_label = CaptionLabel("启用")
-            actions.addWidget(switch_label)
+            actions.addWidget(CaptionLabel("启用"))
             switch = SwitchButton()
             switch.setChecked(running)
             switch.checkedChanged.connect(
@@ -306,9 +362,59 @@ class ToolboxPage(BasePage):
                 on_click=lambda: self._uninstall_plugin(record),
             )
         )
-        top.addLayout(actions)
-        layout.addLayout(top)
+        actions.addStretch(1)
+        operation_panel = QWidget()
+        operation_panel.setLayout(actions)
+        layout.addWidget(operation_panel)
+
+        subscription = state.get("subscription") if isinstance(state, dict) else None
+        if isinstance(subscription, dict):
+            text = self._subscription_text(subscription)
+            if text:
+                caption = CaptionLabel(text)
+                caption.setWordWrap(True)
+                layout.addWidget(caption)
+        if isinstance(state, dict) and state.get("rules_count"):
+            rules_source = {
+                "subscription": "订阅导入",
+                "clash_verge": "Clash Verge",
+            }.get(str(state.get("rules_source") or ""), "内置")
+            rules_label = CaptionLabel(f"规则：{state['rules_count']} 条（{rules_source}）")
+            rules_label.setWordWrap(True)
+            layout.addWidget(rules_label)
+        conflict = state.get("clash_conflict") if isinstance(state, dict) else ""
+        if conflict:
+            warning = CaptionLabel(f"⚠ {conflict}")
+            warning.setWordWrap(True)
+            warning.setStyleSheet("color: #f85149;")
+            layout.addWidget(warning)
+        if isinstance(state, dict) and state.get("system_proxy_active"):
+            proxy_hint = CaptionLabel(f"系统代理：{state.get('system_proxy')}（浏览器已可走 NexHub）")
+            proxy_hint.setWordWrap(True)
+            proxy_hint.setStyleSheet("color: #3fb950;")
+            layout.addWidget(proxy_hint)
+        elif running and state.get("enabled") and not state.get("system_proxy_active"):
+            proxy_hint = CaptionLabel(
+                "系统代理未接管：请关闭 Clash Verge 的系统代理后重新打开开关。"
+            )
+            proxy_hint.setWordWrap(True)
+            proxy_hint.setStyleSheet("color: #f85149;")
+            layout.addWidget(proxy_hint)
         return card
+
+    @staticmethod
+    def _subscription_text(subscription: dict) -> str:
+        total = int(subscription.get("total") or 0)
+        if total <= 0:
+            return ""
+        upload = int(subscription.get("upload") or 0)
+        download = int(subscription.get("download") or 0)
+        remaining = int(subscription.get("remaining") or max(total - upload - download, 0))
+        days = subscription.get("days")
+        text = f"订阅剩余流量：{human_size(remaining)} / {human_size(total)}"
+        if days is not None:
+            text += f" · 剩余 {int(days)} 天"
+        return text
 
     def _refresh_plugin_state(self, record: PluginRecord) -> None:
         plugin_id = record.plugin_id
@@ -364,7 +470,7 @@ class ToolboxPage(BasePage):
                     plugin_id,
                     action,
                     payload,
-                    120.0 if action == "optimize" else 30.0,
+                    120.0 if action in ("optimize", "choose_node") else 30.0,
                 ),
                 parent=self,
             )

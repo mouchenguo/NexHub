@@ -1,17 +1,21 @@
 {
-  "version": "0.1.5-beta",
-  "download_url": "NexHub-v0.1.5-beta.exe",
+  "version": "0.1.6-beta",
+  "download_url": "NexHub-v0.1.6-beta.exe",
   "page_url": "./",
   "server_download_url": "NexHub-Server-Deploy.zip",
   "server_bundle_url": "NexHub-Server-Bundle.zip",
-  "published_at": "2026-10-23",
+  "published_at": "2026-10-24",
   "notes": [
-    "工具箱插件支持快捷操作：内存优化可直接点击“优化内存”，代理可直接启用/停用并选择节点",
-    "插件仍需独立宿主进程隔离运行；快捷操作通过宿主控制通道执行，不把插件代码导入主程序",
-    "NPS 客户端（主机）与 TCP 隧道拆分：创建隧道不再重复创建主机，删除隧道不会再删除共享 vkey",
-    "NPS 隧道管理新增主机列表和新建主机入口；旧隧道会自动迁移为可复用的主机记录",
-    "插件后台运行/配置窗口开关、插件广场和审核系统继续保留"
+    "Clash-Verge内置版 1.4.2：自动同步本机 Clash Verge 661 条规则，节点选择与四色并发测速内嵌在插件窗口/卡片",
+    "修复插件卸载未删除数据目录的问题，重装不会再复用旧规则、旧节点和旧系统代理状态",
+    "v0.1.5 单文件客户端继续使用优化后的 legacy onefile 回退资产，新旧客户端均可通过 latest.json 更新",
+    "客户端继续提供 onedir 便携版和 Inno Setup 安装包，安装到 Program Files 并支持开机自启"
   ],
-  "sha256": "6B0FC93D459EBAADFFBDE4A16C96E66FA04C079E4000C3E98D535E01CD05BC81",
-  "server_sha256": "1A418B8BCDD6D656760E76DE7C5268958A7CA258A5CA2144A8379044A147F02A"
+  "sha256": "5738DB4CC2B2B78E441498FCCE37724EB3372366048B6A6A7DB8F3BEE0170265",
+  "server_sha256": "AB79CF1C83A8DE0F9BCC2E078DC6B8D71DD2D8991B8BBB5125070C064C3B7EE5",
+  "installer_url": "NexHub-Setup-0.1.6-beta.exe",
+  "installer_sha256": "0710DA43B5AADA2AD6C3E1E2D400F85477EBE668E6064EBF375527098F231221",
+  "installer": true,
+  "portable_url": "NexHub-v0.1.6-beta-win64.zip",
+  "portable_sha256": "FBCCD1326A1D8AAC91EF2D2D6FB4E26470BA6AA64F4578D942FDE7379A08C3CA"
 }
