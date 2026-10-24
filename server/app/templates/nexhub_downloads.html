@@ -27,7 +27,7 @@
         <div class="download-head">
             <div class="eyebrow">Download</div>
             <h1>下载 NexHub</h1>
-            <p>Windows 10 / 11 x64 · 当前版本 v{{ latest.version }} · 下载后直接运行，无需安装</p>
+            <p>Windows 10 / 11 x64 · 当前版本 v{{ latest.version }} · 提供安装包、旧客户端单文件和免安装便携版</p>
         </div>
 
         <div class="download-grid">
@@ -45,10 +45,22 @@
             {% endfor %}
         </div>
 
+        {% if latest.installer_sha256 %}
+        <div class="download-extra">
+            <span>安装包 SHA-256</span>
+            <code>{{ latest.installer_sha256 }}</code>
+        </div>
+        {% endif %}
         {% if latest.sha256 %}
         <div class="download-extra">
-            <span>客户端 SHA-256</span>
+            <span>旧客户端单文件 SHA-256</span>
             <code>{{ latest.sha256 }}</code>
+        </div>
+        {% endif %}
+        {% if latest.portable_sha256 %}
+        <div class="download-extra">
+            <span>便携版 SHA-256</span>
+            <code>{{ latest.portable_sha256 }}</code>
         </div>
         {% endif %}
         {% if latest.server_sha256 %}

@@ -70,41 +70,85 @@ def _file_size(raw: str) -> str:
 
 
 def _download_items(latest: dict) -> list[dict]:
-    client_href, client_ready = _download_href(latest.get("download_url", ""))
+    installer_raw = str(latest.get("installer_url") or "").strip()
+    client_raw = str(latest.get("download_url") or "").strip()
+    portable_raw = str(latest.get("portable_url") or "").strip()
+
+    installer_href, installer_ready = _download_href(installer_raw)
+    client_href, client_ready = _download_href(client_raw)
+    portable_href, portable_ready = _download_href(portable_raw)
     server_href, server_ready = _download_href(latest.get("server_download_url", ""))
     bundle_href, bundle_ready = _download_href(latest.get("server_bundle_url", ""))
-    return [
-        {
-            "tag": "WINDOWS CLIENT",
-            "title": f"NexHub-v{latest['version']}.exe",
-            "description": "Windows 10 / 11 x64 单文件客户端，下载后直接运行。",
-            "href": client_href or f"/nexhub/downloads/NexHub-v{latest['version']}.exe",
-            "available": client_ready,
-            "primary": True,
-            "button": "下载 Windows 客户端",
-            "size": _file_size(latest.get("download_url", "")),
-        },
-        {
-            "tag": "SERVER DEPLOY",
-            "title": "NexHub-Server-Deploy.zip",
-            "description": "服务端一键部署包，包含安装脚本和程序包。",
-            "href": server_href or "/nexhub/downloads/NexHub-Server-Deploy.zip",
-            "available": server_ready,
-            "primary": False,
-            "button": "下载部署包",
-            "size": _file_size(latest.get("server_download_url", "")),
-        },
-        {
-            "tag": "SERVER BUNDLE",
-            "title": "NexHub-Server-Bundle.zip",
-            "description": "仅服务端程序包，适合已有服务的手动升级。",
-            "href": bundle_href or "/nexhub/downloads/NexHub-Server-Bundle.zip",
-            "available": bundle_ready,
-            "primary": False,
-            "button": "下载程序包",
-            "size": _file_size(latest.get("server_bundle_url", "")),
-        },
-    ]
+
+    items: list[dict] = []
+    if installer_raw:
+        items.append(
+            {
+                "tag": "WINDOWS INSTALLER",
+                "title": Path(installer_raw).name or f"NexHub-Setup-{latest['version']}.exe",
+                "description": "推荐安装包，安装到 Program Files，支持开始菜单、桌面快捷方式和开机自启。",
+                "href": installer_href,
+                "available": installer_ready,
+                "primary": True,
+                "button": "下载 Windows 安装包",
+                "size": _file_size(installer_raw),
+            }
+        )
+    if client_raw:
+        items.append(
+            {
+                "tag": "WINDOWS CLIENT" if not installer_raw else "LEGACY CLIENT",
+                "title": Path(client_raw).name or f"NexHub-v{latest['version']}.exe",
+                "description": (
+                    "Windows 10 / 11 x64 单文件客户端，下载后直接运行。"
+                    if not installer_raw
+                    else "旧客户端单文件回退，兼容 v0.1.5 及更早版本的自动更新。"
+                ),
+                "href": client_href,
+                "available": client_ready,
+                "primary": not bool(installer_raw),
+                "button": "下载单文件客户端" if installer_raw else "下载 Windows 客户端",
+                "size": _file_size(client_raw),
+            }
+        )
+    if portable_raw:
+        items.append(
+            {
+                "tag": "WINDOWS PORTABLE",
+                "title": Path(portable_raw).name,
+                "description": "onedir 便携版，解压后运行，不写入 Program Files，适合免安装使用。",
+                "href": portable_href,
+                "available": portable_ready,
+                "primary": False,
+                "button": "下载便携版",
+                "size": _file_size(portable_raw),
+            }
+        )
+    items.extend(
+        [
+            {
+                "tag": "SERVER DEPLOY",
+                "title": "NexHub-Server-Deploy.zip",
+                "description": "服务端一键部署包，包含安装脚本和程序包。",
+                "href": server_href or "/nexhub/downloads/NexHub-Server-Deploy.zip",
+                "available": server_ready,
+                "primary": False,
+                "button": "下载部署包",
+                "size": _file_size(latest.get("server_download_url", "")),
+            },
+            {
+                "tag": "SERVER BUNDLE",
+                "title": "NexHub-Server-Bundle.zip",
+                "description": "仅服务端程序包，适合已有服务的手动升级。",
+                "href": bundle_href or "/nexhub/downloads/NexHub-Server-Bundle.zip",
+                "available": bundle_ready,
+                "primary": False,
+                "button": "下载程序包",
+                "size": _file_size(latest.get("server_bundle_url", "")),
+            },
+        ]
+    )
+    return items
 
 
 def _serve_download(filename: str, media_type: str | None = None) -> FileResponse:
