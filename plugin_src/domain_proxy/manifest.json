@@ -1,7 +1,7 @@
 {
   "id": "domain_proxy",
   "name": "Clash-Verge内置版",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "Clash Verge 风格规则分流；自动同步本机 Clash Verge 规则，节点选择、并发测速和系统代理一站式完成。",
   "requirements": "requests>=2.31, pyyaml>=6",
   "controls": [

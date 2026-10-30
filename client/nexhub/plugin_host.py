@@ -143,11 +143,19 @@ def run_plugin_host(plugin_dir: Path, theme: str = "dark", hidden: bool = False)
         temp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
         temp.replace(path)
 
-    def publish_state() -> None:
+    last_state_payload = ""
+
+    def publish_state(force: bool = False) -> None:
+        nonlocal last_state_payload
         if controller is None:
             return
         try:
-            write_json(state_path, controller.state())
+            state = controller.state()
+            payload = json.dumps(state, ensure_ascii=False, sort_keys=True)
+            if not force and payload == last_state_payload:
+                return
+            write_json(state_path, state)
+            last_state_payload = payload
         except Exception:  # noqa: BLE001
             context.logger.exception("插件状态写入失败")
 
@@ -176,10 +184,15 @@ def run_plugin_host(plugin_dir: Path, theme: str = "dark", hidden: bool = False)
                 request_path.unlink(missing_ok=True)
                 publish_state()
 
-    publish_state()
+    publish_state(force=True)
     control_timer = QTimer()
     control_timer.timeout.connect(process_control_requests)
     control_timer.start(100)
+
+    # 即使用户只在主界面看卡片，也要持续把系统代理状态同步到 state.json。
+    state_timer = QTimer()
+    state_timer.timeout.connect(publish_state)
+    state_timer.start(1000)
 
     def watch_stdin() -> None:
         try:

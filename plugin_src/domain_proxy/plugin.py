@@ -217,18 +217,19 @@ def _windows_proxy_enabled() -> tuple[bool, str]:
     return True, str(values.get("server") or values.get("auto_config") or "").strip()
 
 
-def clash_verge_conflict() -> str:
+def clash_verge_conflict(current: dict | None = None) -> str:
     """检测会抢占系统流量的 Clash Verge 代理。
 
     NexHub 现在由单一“系统代理”开关控制：开关打开时使用 7890 接管
     Windows 代理，关闭/退出时恢复。如果 Clash Verge 已经接管系统代理，
     继续启动 NexHub 会导致流量链路互相干扰。
     """
-    enabled, server = _windows_proxy_enabled()
-    if enabled:
-        suffix = f"（{server}）" if server else ""
-        return f"检测到 Windows 系统代理已开启{suffix}，请先关闭 Clash Verge 系统代理"
-    return ""
+    values = current if current is not None else _read_windows_proxy()
+    if not values or int(values.get("enable") or 0) != 1:
+        return ""
+    server = str(values.get("server") or values.get("auto_config") or "").strip()
+    suffix = f"（{server}）" if server else ""
+    return f"检测到 Windows 系统代理已开启{suffix}，请先关闭 Clash Verge 系统代理"
 
 
 def clash_verge_port_open() -> bool:
@@ -778,10 +779,16 @@ class ProxyWindow(QWidget):
         self._monitor = QTimer(self)
         self._monitor.setInterval(2000)
         self._monitor.timeout.connect(self._watch_process)
+        self._proxy_watch_signature: tuple | None = None
+        self._system_proxy_monitor = QTimer(self)
+        self._system_proxy_monitor.setInterval(1000)
+        self._system_proxy_monitor.timeout.connect(self._watch_system_proxy)
         self._build()
         self._load_tables()
         self._update_preview()
+        self._system_proxy_monitor.start()
         self.context.on_cleanup(self._stop_service)
+        self.context.on_cleanup(self._system_proxy_monitor.stop)
         if self.data.get("enabled"):
             QTimer.singleShot(500, self._start_service)
 
@@ -1003,16 +1010,24 @@ class ProxyWindow(QWidget):
         if hasattr(self, "subscription_label"):
             self.subscription_label.setText(subscription_text(self.data.get("subscription")))
 
-    def _refresh_clash_hint(self) -> None:
+    def _refresh_clash_hint(
+        self,
+        current: dict | None = None,
+        port_open: bool | None = None,
+    ) -> None:
         if not hasattr(self, "clash_hint"):
             return
-        current = _read_windows_proxy()
+        if current is None:
+            current = _read_windows_proxy()
+        if port_open is None:
+            port_open = clash_verge_port_open()
         own_proxy = (
             bool(self.data.get("system_proxy_active"))
             and int(current.get("enable") or 0) == 1
             and str(current.get("server") or "").strip() == self._proxy_server()
         )
-        conflict = clash_verge_conflict()
+        conflict = clash_verge_conflict(current)
+        running = bool(self._proc and self._proc.poll() is None)
         if own_proxy:
             self.clash_hint.setText(
                 f"NexHub 已接管 Windows 系统代理（{self._proxy_server()}）；"
@@ -1022,7 +1037,13 @@ class ProxyWindow(QWidget):
         elif conflict:
             self.clash_hint.setText(f"⚠ {conflict}")
             self.clash_hint.setStyleSheet("color: #f85149;")
-        elif clash_verge_port_open():
+        elif running:
+            self.clash_hint.setText(
+                "⚠ NexHub 代理内核运行中，但 Windows 系统代理未由 NexHub 接管；"
+                "请重新打开系统代理开关，或关闭其他代理软件。"
+            )
+            self.clash_hint.setStyleSheet("color: #f85149;")
+        elif port_open:
             self.clash_hint.setText(
                 "检测到 Clash Verge 内核仍在运行；系统代理未开启时不阻止 NexHub，"
                 "请把目标软件代理指向 127.0.0.1:7890。"
@@ -1033,6 +1054,26 @@ class ProxyWindow(QWidget):
                 "未检测到 Clash Verge 系统代理；打开开关后 NexHub 会接管系统代理。"
             )
             self.clash_hint.setStyleSheet("")
+
+    def _watch_system_proxy(self) -> None:
+        """实时刷新 Windows 系统代理提示，避免关闭 Clash 后提示残留。"""
+        if not hasattr(self, "clash_hint"):
+            return
+        current = _read_windows_proxy()
+        port_open = clash_verge_port_open()
+        running = bool(self._proc and self._proc.poll() is None)
+        signature = (
+            int(current.get("enable") or 0),
+            str(current.get("server") or "").strip(),
+            str(current.get("auto_config") or "").strip(),
+            bool(self.data.get("system_proxy_active")),
+            running,
+            port_open,
+        )
+        if signature == self._proxy_watch_signature:
+            return
+        self._proxy_watch_signature = signature
+        self._refresh_clash_hint(current=current, port_open=port_open)
 
     def _proxy_server(self) -> str:
         return f"127.0.0.1:{int(self.data.get('port') or DEFAULT_PORT)}"
@@ -1617,6 +1658,7 @@ class ProxyWindow(QWidget):
             )
             return
         self._monitor.start()
+        self._refresh_clash_hint()
         self.context.log("mihomo started pid=%s" % self._proc.pid)
         QTimer.singleShot(800, self._check_started)
 
@@ -1678,6 +1720,7 @@ class ProxyWindow(QWidget):
         self.data["enabled"] = False
         self._save_data()
         self._set_status("已停止", False)
+        self._refresh_clash_hint()
         if update_switch and hasattr(self, "switch"):
             self.switch.blockSignals(True)
             self.switch.setChecked(False)

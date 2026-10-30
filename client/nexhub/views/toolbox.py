@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtCore import Qt, QTimer, QUrl
 from PyQt6.QtGui import QDesktopServices, QPixmap
 from PyQt6.QtWidgets import (
     QDialog,
@@ -68,6 +68,10 @@ class ToolboxPage(BasePage):
         self._quick_workers: dict[str, FunctionWorker] = {}
         super().__init__(ctx, parent)
         self.ctx.plugin_processes.changed.connect(self._render_installed)
+        self._live_state_monitor = QTimer(self)
+        self._live_state_monitor.setInterval(1000)
+        self._live_state_monitor.timeout.connect(self._poll_plugin_states)
+        self._live_state_monitor.start()
 
     def build(self) -> None:
         top, top_layout = make_card(20, 8)
@@ -200,6 +204,30 @@ class ToolboxPage(BasePage):
             layout.addWidget(label)
             self.installed_layout.addWidget(error)
         self.installed_layout.addStretch(1)
+
+    def _poll_plugin_states(self, render: bool = True) -> None:
+        """轮询插件宿主发布的 state.json，及时更新系统代理冲突提示。
+
+        插件宿主每秒只在状态变化时落盘；这里读取文件而不是走控制请求，
+        避免每秒创建请求文件，也不会阻塞界面。
+        """
+        changed = False
+        for record in self.ctx.plugins.all():
+            plugin_id = record.plugin_id
+            if not record.controls:
+                continue
+            if not self.ctx.plugin_processes.is_running(plugin_id):
+                if self._plugin_states.pop(plugin_id, None) is not None:
+                    changed = True
+                continue
+            if plugin_id in self._quick_workers or plugin_id in self._state_workers:
+                continue
+            state = self.ctx.plugin_processes.state(plugin_id)
+            if state and state != self._plugin_states.get(plugin_id):
+                self._plugin_states[plugin_id] = state
+                changed = True
+        if changed and render:
+            self._render_installed()
 
     @staticmethod
     def _plugin_status_pill(running: bool):
@@ -718,6 +746,7 @@ class ToolboxPage(BasePage):
     def on_show(self) -> None:
         super().on_show()
         self.ctx.plugins.reload_custom()
+        self._poll_plugin_states(render=False)
         self._render_installed()
         if self.ctx.config.plugin_market_url != self._market_source:
             self._market_loaded = False
