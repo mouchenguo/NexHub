@@ -34,11 +34,33 @@
         <div class="card-head"><div><h2>存储模式</h2><p>密钥仅从服务端环境变量读取</p></div><span class="badge {{ 'badge-green' if oss.remote else 'badge-orange' }}">{{ oss.mode }}</span></div>
         <div class="kv-list">
             <div><span>Endpoint</span><strong>{{ oss.endpoint or '未配置' }}</strong></div>
+            <div><span>当前网络</span><strong>{{ oss.network_label }}{% if oss.switchable %}（可切换）{% endif %}</strong></div>
             <div><span>Bucket</span><strong>{{ oss.bucket or '未配置' }}</strong></div>
             <div><span>AccessKey</span><strong>{{ '已配置（隐藏）' if oss.access_key_configured else '未配置' }}</strong></div>
             <div><span>对象前缀</span><strong class="mono">{{ oss.prefix }}</strong></div>
             {% if not oss.remote %}<div><span>本地回退目录</span><strong class="mono">{{ oss.local_dir }}</strong></div>{% endif %}
         </div>
+        {% if oss.remote %}
+        <div class="kv-list mt-16">
+            <div><span>公网 Endpoint</span><strong class="mono">{{ oss.public_endpoint or '未配置' }}</strong></div>
+            <div><span>内网 Endpoint</span><strong class="mono">{{ oss.internal_endpoint or '未配置' }}</strong></div>
+        </div>
+        {% if oss.switchable %}
+        <div class="card-actions">
+            <form method="post" action="/admin/oss/network">
+                <input type="hidden" name="network" value="internal">
+                <button class="btn btn-primary btn-sm" type="submit" {% if oss.network == 'internal' %}disabled{% endif %}>切换到内网</button>
+            </form>
+            <form method="post" action="/admin/oss/network">
+                <input type="hidden" name="network" value="public">
+                <button class="btn btn-ghost btn-sm" type="submit" {% if oss.network == 'public' %}disabled{% endif %}>切换到公网</button>
+            </form>
+        </div>
+        <p class="muted small mt-16">切换只改变当前 ECS 后端访问 OSS 的 endpoint，不迁移对象；已有 OSS 对象仍在同一 Bucket 中。内网 endpoint 仅 ECS 所在 VPC 可用，公网 endpoint 会产生公网流量费用。</p>
+        {% else %}
+        <div class="inline-warning mt-16">当前没有同时可用的公网和内网 Endpoint。请在 <code>.env</code> 配置 <code>OSS_ENDPOINT_PUBLIC</code> 与 <code>OSS_ENDPOINT_INTERNAL</code>，或使用标准阿里云 endpoint 让系统自动推导。</div>
+        {% endif %}
+        {% endif %}
         {% if not oss.remote %}
         <div class="inline-warning mt-16">当前未启用阿里云 OSS，文件存放在 ECS 本地回退目录，适合开发调试。生产环境请在 <code>.env</code> 配置 OSS_ENDPOINT / OSS_BUCKET / OSS_ACCESS_KEY_ID / OSS_ACCESS_KEY_SECRET。</div>
         {% endif %}

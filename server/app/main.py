@@ -13,6 +13,7 @@ from . import db
 from .common import client_ip
 from .compat import API_VERSION, MIN_CLIENT_VERSION, server_info
 from .config import settings
+from .oss_service import oss_service
 from .routers import account, admin, auth, dashboard, devices, nps_hosts_api, public, shares, site, tunnels
 
 logger = logging.getLogger("nexhub.server")
@@ -21,6 +22,7 @@ logger = logging.getLogger("nexhub.server")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db.init_db()
+    oss_service.restore_network()
     app.state.started_at = datetime.now(timezone.utc)
     logger.info("NexHub server started, db=%s", settings.db_path)
     yield

@@ -12,6 +12,7 @@ import sys
 import unicodedata
 from pathlib import Path
 from unittest.mock import Mock, patch
+from urllib.parse import unquote
 
 SERVER_ROOT = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = SERVER_ROOT.parent
@@ -30,6 +31,8 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from app import db, update_service  # noqa: E402
 from app.main import app  # noqa: E402
+from app.oss_service import derive_oss_endpoints  # noqa: E402
+from app.routers import admin as admin_router  # noqa: E402
 
 
 def check(condition: bool, message: str) -> None:
@@ -440,6 +443,65 @@ def main() -> int:
             check(response.status_code == 200 and keyword in response.text, f"后台页面 {path}")
         settings_page = client.get("/admin/settings", cookies=admin_login.cookies)
         check("服务端检查更新" in settings_page.text, "后台显示服务端检查更新入口")
+
+        oss_page = client.get("/admin/oss", cookies=admin_login.cookies)
+        check(
+            "当前网络" in oss_page.text and "Endpoint" in oss_page.text,
+            "后台 OSS 页面展示当前网络与 endpoint",
+        )
+        check("本地回退存储" in oss_page.text, "未配置 OSS 时后台提示本地回退存储")
+        check(
+            derive_oss_endpoints("https://oss-cn-hangzhou.aliyuncs.com")
+            == (
+                "https://oss-cn-hangzhou.aliyuncs.com",
+                "https://oss-cn-hangzhou-internal.aliyuncs.com",
+            ),
+            "OSS 标准 endpoint 自动推导内网地址",
+        )
+        check(derive_oss_endpoints("") == ("", ""), "未配置 OSS endpoint 时推导为空")
+        invalid_network = client.post(
+            "/admin/oss/network",
+            data={"network": "bogus"},
+            cookies=admin_login.cookies,
+        )
+        check(
+            invalid_network.status_code == 303
+            and "不合法" in unquote(invalid_network.headers.get("location", "")),
+            "后台拒绝非法 OSS 网络类型",
+        )
+        check(
+            client.post("/admin/oss/network", data={"network": "internal"}).status_code == 303,
+            "OSS 网络切换需要后台登录",
+        )
+        db.set_setting("oss_network", "")
+        unconfigured_switch = client.post(
+            "/admin/oss/network",
+            data={"network": "internal"},
+            cookies=admin_login.cookies,
+        )
+        check(
+            unconfigured_switch.status_code == 303
+            and "切换失败" in unquote(unconfigured_switch.headers.get("location", "")),
+            "OSS 未配置时切换网络给出错误提示",
+        )
+        check(db.get_setting("oss_network", "") == "", "切换失败不写入 oss_network")
+        with patch.object(
+            admin_router.oss_service,
+            "switch_network",
+            return_value="https://oss-cn-hangzhou-internal.aliyuncs.com",
+        ):
+            switched = client.post(
+                "/admin/oss/network",
+                data={"network": "internal"},
+                cookies=admin_login.cookies,
+            )
+        check(
+            switched.status_code == 303
+            and "已切换到内网" in unquote(switched.headers.get("location", "")),
+            "后台切换到内网 endpoint",
+        )
+        check(db.get_setting("oss_network", "") == "internal", "切换成功写入 oss_network")
+        db.set_setting("oss_network", "")
 
         release_payload = [
             {

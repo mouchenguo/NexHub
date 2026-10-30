@@ -20,22 +20,112 @@ except ImportError:  # pragma: no cover
     oss2 = None
 
 
+NETWORK_PUBLIC = "public"
+NETWORK_INTERNAL = "internal"
+NETWORK_LABELS = {NETWORK_PUBLIC: "公网", NETWORK_INTERNAL: "内网"}
+
+
+def _normalize_endpoint(value: str) -> str:
+    value = str(value or "").strip()
+    if not value:
+        return ""
+    if not value.startswith(("http://", "https://")):
+        value = "https://" + value
+    return value.rstrip("/")
+
+
+def derive_oss_endpoints(endpoint: str) -> tuple[str, str]:
+    """从 OSS_ENDPOINT 推导 (公网, 内网) endpoint。
+
+    阿里云标准 endpoint 通过 ``-internal`` 区分 VPC 内网和公网；
+    非标准/自定义 endpoint 无法推导时，两边返回同一个值。
+    """
+    value = _normalize_endpoint(endpoint)
+    if not value:
+        return "", ""
+    if "-internal." in value:
+        return value.replace("-internal.", ".", 1), value
+    if ".aliyuncs.com" in value:
+        return value, value.replace(".aliyuncs.com", "-internal.aliyuncs.com", 1)
+    return value, value
+
+
 class OssService:
     def __init__(self) -> None:
+        self._lock = threading.RLock()
+        derived_public, derived_internal = derive_oss_endpoints(settings.oss_endpoint)
+        self.public_endpoint = _normalize_endpoint(settings.oss_endpoint_public) or derived_public
+        self.internal_endpoint = _normalize_endpoint(settings.oss_endpoint_internal) or derived_internal
+        self.network = self._detect_network(settings.oss_endpoint)
+        self.endpoint = self._endpoint_for(self.network)
+        self.auth = None
+        self.bucket = None
+        self.remote = False
+        self._build_remote()
+        self.local_root = settings.local_oss_dir
+        self.local_root.mkdir(parents=True, exist_ok=True)
+
+    def _detect_network(self, endpoint: str) -> str:
+        configured = str(settings.oss_network or "").strip().lower()
+        if configured in NETWORK_LABELS:
+            return configured
+        value = _normalize_endpoint(endpoint)
+        if "-internal." in value or value.endswith("-internal.aliyuncs.com"):
+            return NETWORK_INTERNAL
+        return NETWORK_PUBLIC
+
+    def _endpoint_for(self, network: str) -> str:
+        return self.internal_endpoint if network == NETWORK_INTERNAL else self.public_endpoint
+
+    def _build_remote(self) -> None:
+        endpoint = self._endpoint_for(self.network)
         self.remote = bool(
             oss2
-            and settings.oss_endpoint
+            and endpoint
             and settings.oss_bucket
             and settings.oss_access_key_id
             and settings.oss_access_key_secret
         )
-        self.bucket = None
         if self.remote:
+            self.auth = oss2.Auth(settings.oss_access_key_id, settings.oss_access_key_secret)
+            self.bucket = oss2.Bucket(self.auth, endpoint, settings.oss_bucket)
+            self.endpoint = endpoint
+        else:
+            self.auth = None
+            self.bucket = None
+
+    def switch_network(self, network: str) -> str:
+        """切换 OSS 使用的公网/内网 endpoint，不迁移对象。"""
+        mode = str(network or "").strip().lower()
+        if mode not in NETWORK_LABELS:
+            raise ValueError("OSS 网络类型必须是 public 或 internal")
+        endpoint = self._endpoint_for(mode)
+        if not endpoint:
+            raise ValueError("当前没有配置可用的 OSS endpoint")
+        if not (oss2 and settings.oss_bucket and settings.oss_access_key_id and settings.oss_access_key_secret):
+            raise ValueError("OSS 未完整配置，无法切换网络")
+        with self._lock:
             auth = oss2.Auth(settings.oss_access_key_id, settings.oss_access_key_secret)
-            self.bucket = oss2.Bucket(auth, settings.oss_endpoint, settings.oss_bucket)
-        self.local_root = settings.local_oss_dir
-        self.local_root.mkdir(parents=True, exist_ok=True)
-        self._lock = threading.Lock()
+            bucket = oss2.Bucket(auth, endpoint, settings.oss_bucket)
+            self.auth = auth
+            self.bucket = bucket
+            self.network = mode
+            self.endpoint = endpoint
+            self.remote = True
+        return endpoint
+
+    def restore_network(self) -> None:
+        """服务启动后恢复管理后台保存的网络选择。"""
+        try:
+            from . import db
+
+            configured = db.get_setting("oss_network", "").strip().lower()
+            if configured in NETWORK_LABELS:
+                self.switch_network(configured)
+        except Exception:
+            # 数据库尚未初始化或 OSS 未配置时保持启动默认值。
+            pass
+
 
     # ------------------------------------------------------------------
     def object_key(self, share_token: str, relative_path: str) -> str:
@@ -137,7 +227,17 @@ class OssService:
         return {
             "mode": "阿里云 OSS" if self.remote else "本地回退存储（未配置 OSS）",
             "remote": self.remote,
-            "endpoint": settings.oss_endpoint if self.remote else "",
+            "endpoint": self.endpoint if self.remote else "",
+            "network": self.network,
+            "network_label": NETWORK_LABELS.get(self.network, self.network),
+            "public_endpoint": self.public_endpoint,
+            "internal_endpoint": self.internal_endpoint,
+            "switchable": bool(
+                self.remote
+                and self.public_endpoint
+                and self.internal_endpoint
+                and self.public_endpoint != self.internal_endpoint
+            ),
             "bucket": settings.oss_bucket if self.remote else "",
             "access_key_configured": bool(
                 settings.oss_access_key_id and settings.oss_access_key_secret

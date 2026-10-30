@@ -444,6 +444,38 @@ def admin_oss_update(
     return _redirect("/admin/oss", "OSS 容量上限已更新")
 
 
+@router.post("/admin/oss/network")
+def admin_oss_network(
+    request: Request,
+    network: str = Form(...),
+    admin: dict = Depends(admin_page_user),
+):
+    mode = network.strip().lower()
+    labels = {"public": "公网", "internal": "内网"}
+    if mode not in labels:
+        return _redirect("/admin/oss", "OSS 网络类型不合法", "error")
+    try:
+        endpoint = oss_service.switch_network(mode)
+    except Exception as exc:
+        db.log_event(
+            "warning",
+            "oss",
+            f"切换 OSS 网络失败：{exc}",
+            user_id=admin["id"],
+            ip=client_ip(request),
+        )
+        return _redirect("/admin/oss", f"切换失败：{exc}", "error")
+    db.set_setting("oss_network", mode)
+    db.log_event(
+        "warning",
+        "oss",
+        f"切换 OSS 网络为{labels[mode]}：{endpoint}",
+        user_id=admin["id"],
+        ip=client_ip(request),
+    )
+    return _redirect("/admin/oss", f"OSS 已切换到{labels[mode]} endpoint")
+
+
 # ---------------------------------------------------------------------- NPS
 @router.get("/admin/nps")
 def admin_nps(request: Request, admin: dict = Depends(admin_page_user)):
