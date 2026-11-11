@@ -1,9 +1,23 @@
 {
   "id": "memory_optimizer",
   "name": "内存优化",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "回收进程工作集，释放闲置内存，适合长期开机的工作站。",
   "requirements": "psutil>=5.9",
+  "config_window": false,
+  "metrics": [
+    {"key": "percent", "label": "内存占用", "type": "percent", "bar": true},
+    {
+      "key": "used",
+      "label": "已用内存",
+      "type": "bytes",
+      "hint_key": "total",
+      "hint_prefix": "总计 ",
+      "hint_type": "bytes"
+    },
+    {"key": "available", "label": "可用内存", "type": "bytes"},
+    {"key": "process_count", "label": "运行进程", "type": "count"}
+  ],
   "controls": [
     {"id": "optimize", "type": "button", "label": "优化内存", "primary": true}
   ]

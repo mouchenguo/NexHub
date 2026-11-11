@@ -62,11 +62,11 @@ def main() -> int:
     pump(app, 2.0)
 
     pages = [
-        "dashboard",
+        "home",
         "my_shares",
         "square",
         "rdp",
-        "toolbox",
+        "plugin_market",
         "settings",
     ]
     for page in pages:
@@ -77,7 +77,7 @@ def main() -> int:
 
     theme.set_theme("light")
     pump(app, 1.0)
-    for page in ("dashboard", "settings"):
+    for page in ("home", "settings"):
         window.navigate(page)
         pump(app, 0.6)
         window.grab().save(str(SHOT_DIR / f"{page}_light.png"))

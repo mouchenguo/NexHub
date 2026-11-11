@@ -519,16 +519,24 @@ class SettingsPage(BasePage):
             form_field(
                 "插件广场 API 地址",
                 self.plugin_market_edit,
-                "支持 HTTP/HTTPS；保存后立即用于插件工具箱的广场数据源。",
+                "支持 HTTP/HTTPS；保存后立即用于「插件广场」页面的数据源。",
             )
         )
         layout.addWidget(
             Banner(
-                "插件包必须包含 manifest.json 与 plugin.py，并在独立进程中运行。",
+                "插件包必须包含 manifest.json 与 plugin.py，并在独立进程中运行。"
+                "安装后需要手动「加载到工作空间」才会出现在侧栏。",
                 FIF.INFO,
             )
         )
         actions = QHBoxLayout()
+        actions.addWidget(
+            make_button(
+                "打开工作空间管理",
+                icon=FIF.APPLICATION,
+                on_click=self.ctx.open_workspace_manager,
+            )
+        )
         actions.addStretch(1)
         actions.addWidget(
             make_button(
@@ -541,8 +549,8 @@ class SettingsPage(BasePage):
         layout.addLayout(actions)
         self._add_group(
             FIF.DEVELOPER_TOOLS,
-            "插件广场",
-            "远程插件清单、安装源与独立进程运行",
+            "插件与工作空间",
+            "远程插件清单、安装源与侧栏选项卡",
             content,
         )
 
@@ -561,7 +569,7 @@ class SettingsPage(BasePage):
         self.plugin_market_edit.setText(url)
         InfoBar.success(
             "已保存",
-            "插件广场地址已更新，返回工具箱后刷新即可生效",
+            "插件广场地址已更新，返回「插件广场」页面刷新即可生效",
             parent=self,
             position=InfoBarPosition.TOP_RIGHT,
         )

@@ -1,7 +1,7 @@
 ; NexHub Windows installer (Inno Setup 6)
 ; Build after PyInstaller onedir:
 ;   python -m PyInstaller --onedir ... main.py
-;   ISCC.exe /DMyAppVersion=0.1.6-beta NexHub.iss
+;   ISCC.exe /DMyAppVersion=0.1.7-beta NexHub.iss
 
 #ifndef MyAppVersion
   #define MyAppVersion "0.0.0"

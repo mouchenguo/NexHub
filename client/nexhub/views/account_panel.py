@@ -346,7 +346,7 @@ class AccountPanel(QWidget):
         self.login_status.setText("登录成功")
         self._sync_state()
         self.close_panel()
-        self.ctx.navigate("dashboard")
+        self.ctx.navigate("home")
         compatibility = self.ctx.server_compat
         if compatibility.error:
             self.ctx.notify(compatibility.error, "error")
@@ -407,7 +407,7 @@ class AccountPanel(QWidget):
             self.register_status.setText(message)
             self._sync_state()
             self.close_panel()
-            self.ctx.navigate("dashboard")
+            self.ctx.navigate("home")
             compatibility = self.ctx.server_compat
             if compatibility.warning:
                 self.ctx.notify(compatibility.warning, "warning")

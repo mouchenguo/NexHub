@@ -32,22 +32,35 @@ from .paths import VERSION, resource_path
 from .views.account import ChangeNicknameDialog, ChangePasswordDialog
 from .views.account_panel import AccountPanel
 from .views.dashboard import DashboardPage
+from .views.home import HomePage
 from .views.my_shares import MySharesPage
+from .views.plugin_market import PluginMarketPage
+from .views.plugin_workspace import PluginWorkspacePage
 from .views.rdp import RdpPage
 from .views.settings import SettingsPage
 from .views.square import SquarePage
-from .views.toolbox import ToolboxPage
+from .views.workspace_manager import WorkspaceManagerDialog
 from .widgets.common import ask_confirm
 from .workers import FunctionWorker
+from .workspace import (
+    BOTTOM_PAGE_IDS,
+    PAGE_SPECS_BY_ID,
+    PLUGIN_PAGE_PREFIX,
+    is_plugin_page,
+    plugin_id_from_page,
+)
 
-PAGE_DEFS = [
-    ("dashboard", DashboardPage, FIF.HOME, "仪表盘"),
-    ("my_shares", MySharesPage, FIF.SHARE, "我的共享"),
-    ("square", SquarePage, FIF.GLOBE, "共享广场"),
-    ("rdp", RdpPage, FIF.PROJECTOR, "RDP 主机"),
-    ("toolbox", ToolboxPage, FIF.DEVELOPER_TOOLS, "工具箱"),
-    ("settings", SettingsPage, FIF.SETTING, "设置"),
-]
+ADD_TAB_ROUTE = "workspace_add_tab"
+
+PAGE_FACTORIES = {
+    "home": HomePage,
+    "my_shares": MySharesPage,
+    "square": SquarePage,
+    "rdp": RdpPage,
+    "plugin_market": PluginMarketPage,
+    "dashboard": DashboardPage,
+    "settings": SettingsPage,
+}
 
 INFO_METHODS = {
     "success": InfoBar.success,
@@ -105,14 +118,17 @@ class MainWindow(FluentWindow):
         self._tray_notified = False
         self._startup_update_checked = False
         self._tray: QSystemTrayIcon | None = None
+        self._nav_mounted: set[str] = set()
+        self._placeholder: QWidget | None = None
         self._build_window()
-        self._add_pages()
+        self._build_workspace()
         self.account_panel = AccountPanel(self.ctx, self)
         self.account_panel.avatar_requested.connect(self._choose_avatar)
         self.account_panel.nickname_requested.connect(self._change_nickname)
         self.account_panel.password_requested.connect(self._change_password)
         self.ctx.connection_changed.connect(self._on_connection_changed)
         self.ctx.profile_changed.connect(self._on_profile_changed)
+        self.ctx.workspace_changed.connect(self._sync_navigation)
         self._setup_tray()
         QTimer.singleShot(450, self._restore_active_plugins)
         QTimer.singleShot(1600, self._check_updates_on_startup)
@@ -148,10 +164,11 @@ class MainWindow(FluentWindow):
         nav.addItemHeader("工作空间")
 
     def _restore_active_plugins(self) -> None:
-        """恢复上次通过开关启用的插件；只在后台启动，不弹出配置窗口。"""
+        """恢复上次在运行、且仍在工作空间中的插件；只在后台启动。"""
         active = set(self.ctx.config.active_plugins)
+        loaded = set(self.ctx.workspace.loaded_plugin_ids())
         for record in self.ctx.plugins.all():
-            if record.plugin_id not in active:
+            if record.plugin_id not in active or record.plugin_id not in loaded:
                 continue
             try:
                 self.ctx.plugin_processes.start(record, hidden=True)
@@ -176,15 +193,9 @@ class MainWindow(FluentWindow):
                 available.y() + max(0, (available.height() - height) // 2),
             )
 
-    def _add_pages(self) -> None:
+    def _build_workspace(self) -> None:
+        """建立用户卡片与侧栏；页面本身按需实例化（懒加载）。"""
         nav = self.navigationInterface
-        for page_id, page_class, icon, text in PAGE_DEFS:
-            if page_id == "toolbox":
-                nav.addItemHeader("工具箱")
-            page = page_class(self.ctx, self)
-            self._pages[page_id] = page
-            self.addSubInterface(page, icon, text, NavigationItemPosition.TOP)
-
         display = self.ctx.config.display_name or self.ctx.config.username or "本地用户"
         role = "管理员" if self.ctx.config.role == "admin" else "普通用户"
         if self.ctx.config.demo_mode:
@@ -203,12 +214,160 @@ class MainWindow(FluentWindow):
         )
         self.user_card.setToolTip("点击打开账户面板")
         QTimer.singleShot(250, self._load_user_avatar)
+        self._sync_navigation()
+
+    # ------------------------------------------------------------------ 工作空间
+    def _page_icon(self, page_id: str):
+        if is_plugin_page(page_id):
+            return FIF.DEVELOPER_TOOLS
+        spec = PAGE_SPECS_BY_ID.get(page_id)
+        return getattr(FIF, spec.icon, FIF.APPLICATION) if spec else FIF.APPLICATION
+
+    def _page_title(self, page_id: str) -> str:
+        if is_plugin_page(page_id):
+            record = self.ctx.plugins.get(plugin_id_from_page(page_id))
+            return record.name if record else "插件"
+        spec = PAGE_SPECS_BY_ID.get(page_id)
+        return spec.title if spec else page_id
+
+    def _page_position(self, page_id: str):
+        """设置固定在底部（头像上方），其余放在顶部导航组。"""
+        if page_id in BOTTOM_PAGE_IDS:
+            return NavigationItemPosition.BOTTOM
+        return NavigationItemPosition.TOP
+
+    def _create_page(self, page_id: str):
+        if is_plugin_page(page_id):
+            plugin_id = plugin_id_from_page(page_id)
+            if not self.ctx.workspace.is_plugin_loaded(plugin_id):
+                return None
+            return PluginWorkspacePage(self.ctx, plugin_id, self)
+        factory = PAGE_FACTORIES.get(page_id)
+        return factory(self.ctx, self) if factory else None
+
+    def _ensure_page(self, page_id: str):
+        page = self._pages.get(page_id)
+        if page is not None:
+            if self.stackedWidget.indexOf(page) < 0:
+                self.addSubInterface(
+                    page,
+                    self._page_icon(page_id),
+                    self._page_title(page_id),
+                    self._page_position(page_id),
+                )
+                self._nav_mounted.add(page_id)
+            return page
+        page = self._create_page(page_id)
+        if page is None:
+            return None
+        self._pages[page_id] = page
+        self.addSubInterface(
+            page,
+            self._page_icon(page_id),
+            self._page_title(page_id),
+            self._page_position(page_id),
+        )
+        self._nav_mounted.add(page_id)
+        return page
+
+    def _ensure_placeholder(self) -> None:
+        """在页面栈里保留一个中转页。
+
+        qfluentwidgets 在“页面栈被移空”时会崩溃，因此重建侧栏期间
+        必须保证 stackedWidget 里至少还有一个页面。
+        """
+        if self._placeholder is None:
+            self._placeholder = QWidget()
+            self._placeholder.setObjectName("workspace_placeholder")
+        if self.stackedWidget.indexOf(self._placeholder) < 0:
+            self.stackedWidget.addWidget(self._placeholder)
+
+    def _sync_navigation(self) -> None:
+        """按工作空间注册表重建侧栏；“添加选项卡”永远是最后一项。
+
+        注意：qfluentwidgets 的 ``removeInterface`` 会销毁导航项，
+        且页面栈被移空会崩溃，所以先放一个占位页再整体重建。
+        """
+        desired = self.ctx.workspace.page_ids()
+        nav = self.navigationInterface
+        self._ensure_placeholder()
+        current = self.stackedWidget.currentWidget()
+        current_id = current.objectName() if current is not None else ""
+        if current is not None and current_id not in desired:
+            home = self._pages.get("home") or self._ensure_page("home")
+            if home is not None and home is not current:
+                self.switchTo(home)
+                current = home
+
+        for page_id in list(self._nav_mounted):
+            page = self._pages.get(page_id)
+            if page is not None:
+                self.removeInterface(page, isDelete=False)
+            else:
+                nav.removeWidget(page_id)
+            self._nav_mounted.discard(page_id)
+        nav.removeWidget(ADD_TAB_ROUTE)
+
+        for page_id in desired:
+            self._ensure_page(page_id)
+
+        nav.addItem(
+            ADD_TAB_ROUTE,
+            FIF.ADD,
+            "添加选项卡",
+            onClick=self.open_workspace_manager,
+            position=NavigationItemPosition.TOP,
+        )
+        self._place_bottom_pages()
+
+        if current is not None and self.stackedWidget.indexOf(current) >= 0:
+            self.switchTo(current)
+        else:
+            self.navigate("home")
+
+    def _place_bottom_pages(self) -> None:
+        """把底部页面（设置）放到用户卡片上方。
+
+        qfluentwidgets 的 BOTTOM 项是追加到 bottomLayout 末尾，而用户卡片
+        也在同一布局里，所以重建后需要把底部页面重新提到卡片之前。
+        """
+        user_card = getattr(self, "user_card", None)
+        if user_card is None:
+            return
+        panel = getattr(self.navigationInterface, "panel", None)
+        layout = getattr(panel, "bottomLayout", None)
+        if layout is None:
+            return
+
+        def index_of(widget) -> int | None:
+            for index in range(layout.count()):
+                item = layout.itemAt(index)
+                if item is not None and item.widget() is widget:
+                    return index
+            return None
+
+        card_index = index_of(user_card)
+        if card_index is None:
+            return
+
+        target = 0
+        for page_id in BOTTOM_PAGE_IDS:
+            widget = self.navigationInterface.widget(page_id)
+            if widget is None or index_of(widget) is None:
+                continue
+            layout.removeWidget(widget)
+            layout.insertWidget(target, widget, 0, Qt.AlignmentFlag.AlignBottom)
+            target += 1
+
+    def open_workspace_manager(self) -> None:
+        dialog = WorkspaceManagerDialog(self.ctx, self)
+        dialog.exec()
 
     def _initial_page(self) -> None:
         current = self.stackedWidget.currentWidget()
         if current:
             self._on_page_changed(self.stackedWidget.currentIndex())
-        self.navigate("dashboard")
+        self.navigate("home")
 
     def _expand_sidebar(self) -> None:
         if not self._sidebar_expanded and self.width() >= 1040:
@@ -336,9 +495,20 @@ class MainWindow(FluentWindow):
 
     # ------------------------------------------------------------------
     def navigate(self, page_id: str) -> None:
-        page = self._pages.get(page_id)
+        # 不可见（已隐藏 / 非管理员 / 插件未加载）时统一回主页
+        if not self.ctx.workspace.is_visible(page_id):
+            page_id = "home"
+        page = self._ensure_page(page_id)
         if page is None:
             return
+        if self.stackedWidget.indexOf(page) < 0:
+            self.addSubInterface(
+                page,
+                self._page_icon(page_id),
+                self._page_title(page_id),
+                self._page_position(page_id),
+            )
+            self._nav_mounted.add(page_id)
         if self.stackedWidget.currentWidget() is page:
             page.on_show()
             return
@@ -381,6 +551,8 @@ class MainWindow(FluentWindow):
             panel._sync_state()
 
     def _on_connection_changed(self, online: bool) -> None:
+        # 登录/退出可能改变角色，仪表盘选项卡需要立即出现或消失
+        self._sync_navigation()
         self.refresh_shell()
         if online:
             self._load_user_avatar()

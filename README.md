@@ -7,18 +7,18 @@ NexHub 面向个人和可信好友小范围使用：在本机一键发布文件/
 **Fluent Design · 默认深色主题 · FluentWindow 可折叠侧边栏 · 圆角卡片 · 深浅主题一键切换 · OSS 密钥只存在 ECS 后端**
 
 [![GitHub Release](https://img.shields.io/github/v/release/mouchenguo/NexHub?include_prereleases&label=release)](https://github.com/mouchenguo/NexHub/releases)
-[![Platform](https://img.shields.io/badge/platform-Windows%2010%20%2F%2011-0078D4)](https://github.com/mouchenguo/NexHub/releases/tag/v0.1.6-beta)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%20%2F%2011-0078D4)](https://github.com/mouchenguo/NexHub/releases/tag/v0.1.7-beta)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB)](https://www.python.org/)
 
 ## 下载
 
 | 文件 | 说明 |
 | --- | --- |
-| [`NexHub-Setup-0.1.6-beta.exe`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.6-beta/NexHub-Setup-0.1.6-beta.exe) | Windows 10 / 11 x64 安装包（推荐） |
-| [`NexHub-v0.1.6-beta-win64.zip`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.6-beta/NexHub-v0.1.6-beta-win64.zip) | onedir 便携版 |
-| [`NexHub-v0.1.6-beta.exe`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.6-beta/NexHub-v0.1.6-beta.exe) | 旧客户端单文件回退（优化后 onefile） |
-| [`NexHub-Server-Deploy.zip`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.6-beta/NexHub-Server-Deploy.zip) | 服务端一键部署包（含安装脚本） |
-| [`NexHub-Server-Bundle.zip`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.6-beta/NexHub-Server-Bundle.zip) | 仅服务端程序包，适合手动升级 |
+| [`NexHub-Setup-0.1.7-beta.exe`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.7-beta/NexHub-Setup-0.1.7-beta.exe) | Windows 10 / 11 x64 安装包（推荐） |
+| [`NexHub-v0.1.7-beta-win64.zip`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.7-beta/NexHub-v0.1.7-beta-win64.zip) | onedir 便携版 |
+| [`NexHub-v0.1.7-beta.exe`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.7-beta/NexHub-v0.1.7-beta.exe) | 旧客户端单文件回退（优化后 onefile） |
+| [`NexHub-Server-Deploy.zip`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.7-beta/NexHub-Server-Deploy.zip) | 服务端一键部署包（含安装脚本） |
+| [`NexHub-Server-Bundle.zip`](https://github.com/mouchenguo/NexHub/releases/download/v0.1.7-beta/NexHub-Server-Bundle.zip) | 仅服务端程序包，适合手动升级 |
 
 > GitHub Release 同时保留安装包、onedir 便携版和旧客户端单文件回退资产；旧客户端通过 `latest.json` 继续获得优化后的单文件 exe。
 
@@ -62,7 +62,7 @@ NexHub 面向个人和可信好友小范围使用：在本机一键发布文件/
 | --- |
 | ![](docs/screenshots/client_register.png) |
 
-| 客户端 · RDP 主机 | 客户端 · 工具箱 |
+| 客户端 · RDP 主机 | 客户端 · 插件广场 |
 | --- | --- |
 | ![](docs/screenshots/client_rdp_dark.png) | ![](docs/screenshots/client_toolbox_dark.png) |
 
@@ -85,7 +85,8 @@ NexHub 面向个人和可信好友小范围使用：在本机一键发布文件/
 - **窗口行为**：最小化保留在任务栏；点击关闭按钮才隐藏到托盘；托盘菜单仅保留「显示 NexHub / 退出 NexHub」。设置 → 启动可开启开机自启，自启时只驻留托盘。
 - **安装布局**：正式安装包使用 Inno Setup 安装到 `C:\Program Files\NexHub`，程序采用 onedir 拆分文件；配置、日志、插件和演示数据保留在 `%APPDATA%\NexHub`，避免向 Program Files 写入用户数据。
 - **检查更新与下载页**：设置 → 关于与本地数据 → 检查更新，读取 `服务器地址/downloads/latest.json`；启动后登录状态会自动检查一次。新版本优先下载 Inno Setup 安装包并安装到 `Program Files`，旧版客户端仍使用 `download_url` 指向的单文件 exe 过渡。当前已发布版本 `v0.1.5-beta`。
-- **仪表盘**：活跃共享、RDP 主机数量、OSS 已用容量、服务状态、最近动态。
+- **主页**：工作空间唯一固定入口，汇总账号/连接状态与侧栏项数；「功能导航」列出全部内置功能与已安装插件，标出「已显示 / 已隐藏 / 插件未加载」并支持一键恢复选项卡；底部提供「添加选项卡」「打开插件广场」，管理员额外可打开网页后台。
+- **仪表盘（管理员专属）**：全站用量（OSS 已用/配额/占比、活跃共享、累计下载、注册与待审核用户）、最近 30 条服务端系统日志、网页后台入口。普通用户看不到该页，接口调用返回 `403`。
 - **一键共享**：
   - 自动扫描文件/文件夹并统计大小；
   - 总大小 **< 5GB** 时可选择「OSS 长期缓存」或「临时穿透」；
@@ -96,7 +97,8 @@ NexHub 面向个人和可信好友小范围使用：在本机一键发布文件/
 - **我的共享**：搜索、按类型/状态筛选、复制链接、取消共享、删除共享。
 - **共享广场**：卡片网格、搜索、排序、目录树浏览、勾选部分文件、自定义保存路径、流式下载与进度显示。
 - **RDP 主机**：本地保存主机名称、IP/域名、端口、用户名、加密密码和备注；新增/编辑/删除；一键调用 Windows 原生 `mstsc.exe`，优先生成临时 `.rdp` 文件并在会话结束后清理；支持勾选 NPS 隧道并使用 NPC 配置中的 RDP 隧道地址。
-- **工具箱（插件广场 + 进程隔离）**：工具箱内提供「已安装」与「插件广场」两个标签；支持远程清单、搜索、分类、安装/更新/卸载、本地 zip 导入。插件在独立宿主进程中运行，单个插件崩溃不会退出主程序。插件可通过 manifest 的 `controls` 声明卡片快捷控件；内存优化支持一键“优化内存”，Clash-Verge内置版支持直接启用/停用和选择节点，快捷操作仍由插件宿主执行。Clash-Verge内置版支持 Clash/Mihomo YAML 订阅（含 hysteria2、anytls 等节点）和 vmess/trojan/ss/vless URI 订阅。内存优化与Clash-Verge内置版均以 zip 插件形式安装，不再内置。设置页可修改插件广场 API 地址。
+- **工作空间（安装 ≠ 加载）**：插件「安装」只写入插件包，不再自动出现在侧栏；安装完成后询问「添加到工作空间」。侧栏由 `WorkspaceRegistry` 动态生成：主页与设置固定常显，我的共享/共享广场/RDP 主机/插件广场按需隐藏，插件选项卡仅对“已加载”插件出现。「添加选项卡」弹窗统一用勾选框控制内置页面与插件（勾选 = 加入工作空间，插件行右侧图标用于卸载）；插件页提供 manifest 快捷控件与实时指标，真正的插件 UI 仍在独立进程中运行。隐藏页面只移出侧栏，页面实例保留（滚动位置与输入不丢）。
+- **插件广场（独立页面）**：远程清单、搜索、分类、刷新、本地 ZIP 导入、安装/更新/加载状态展示。更新时保留原选项卡，运行中的插件自动重启；未加载的插件更新后不会新增选项卡。
 - **NPC 一键自动配置**：设置 → NPC 与内网穿透 → 「一键自动配置 NPC」；登录后点击即可请求 ECS，服务端幂等创建/修复当前设备的 NPS 主机和 TCP 隧道，客户端自动安装 NPC、写入 `npc.conf`、重启服务，并显示公网 RDP 地址，无需手动填写 vkey。
 - **设置 → NPC 管理 → 隧道管理**：三层文件夹式导航；先创建 NPS 主机（一个 vkey），再在主机下创建多条 TCP 隧道。ECS 不会在每条隧道创建时重复新建主机；删除隧道只删除对应 TCP 任务，不删除共享主机。支持将 vkey/NPS 地址下发到本机 `npc.conf`、一键重启 NPC、启停/编辑/删除隧道。发布临时共享时 ECS 会为该共享自动分配公网 TCP 端口并创建 NPS 隧道，取消/删除共享时自动关闭隧道；离线体验使用模拟隧道，不调用真实 NPS、不写本机配置。
 - **设置 → NPC 与内网穿透**：内置 NPC 资源，启动时检测 `C:\Program Files\npc\npc.exe`；缺失时经 UAC 自动释放，目录损坏时提示重新解压修复；NPC 只提供「主机 IP（含端口）」和「vkey」两个输入项，保存写入 `C:\Program Files\npc\conf\npc.conf`，支持一键重启 `Npc` 服务；RDP/NPS 隧道地址也在此模块统一维护。
@@ -111,9 +113,9 @@ NexHub 面向个人和可信好友小范围使用：在本机一键发布文件/
 
 #### 客户端 UI 结构（Fluent 重构）
 
-- **主窗口**：`FluentWindow`，使用内置 `NavigationInterface` 可折叠侧边导航；「工作空间」包含仪表盘/共享/广场/RDP 主机，「工具箱」分组只保留工具箱与设置；账号不再占用侧边导航，只在左下角用户卡片展示。
+- **主窗口**：`FluentWindow` + `NavigationInterface` 可折叠侧边导航，侧栏由工作空间注册表动态生成：「主页」（固定）/ 我的共享 / 共享广场 / RDP 主机 / 插件广场 / 插件选项卡 / 「仪表盘」（仅管理员）/ 「添加选项卡」，底部固定「设置」（在左下角用户头像上方）；页面按需实例化，隐藏页面保留实例；账号不占导航，只在左下角用户卡片展示。
 - **页面容器**：`views/base.py::BasePage` 统一提供 `SingleDirectionScrollArea`、页面标题、ECS 连接状态与主题切换按钮；各页面只继承 `QWidget` 并构建内容。
-- **仪表盘**：`CardWidget` 圆角卡片 + `StatCard` 统计卡、`ProgressBar` 存储进度、最近动态列表，布局对齐现代 Fluent 仪表盘。
+- **仪表盘**：管理员专用的 `CardWidget` + `StatCard` 用量卡、`ProgressBar` 配额进度、日志列表（级别/分类/用户/时间）与网页后台按钮，数据来自 `GET /api/admin/overview`。
 - **Fluent 控件**：`InfoBar`（操作提示）、`PillPushButton`（状态胶囊）、`SegmentedWidget`（主题切换）、`SearchLineEdit`、`ComboBox`、`SpinBox`、`TableWidget`、`TreeWidget`、`PasswordLineEdit`、`AvatarWidget`、`MessageBox`。
 - **主题**：`ThemeManager` 调用 `setTheme(Theme.DARK/LIGHT/AUTO)`，默认深色，选择保存到本地 JSON；不手写 QSS，由 qfluentwidgets 自动刷新全部控件。
 - **对话框**：发布共享、文件浏览、RDP 主机编辑、修改昵称、修改密码、更新提示均使用 Fluent 组件 + `FluentStyleSheet.DIALOG`；确认操作统一使用 `MessageBox`。
@@ -433,6 +435,7 @@ cd D:\Code\Project\NexHub\client
 | PATCH | `/api/auth/profile` | 修改当前用户昵称（`display_name`，1-32 字符） |
 | POST | `/api/auth/password` | 修改密码 |
 | GET | `/api/dashboard` | 仪表盘（用户维度） |
+| GET | `/api/admin/overview?limit=30` | 管理员只读概览：全站用量 + 最近系统日志 + 网页后台地址；普通用户 `403` |
 | POST | `/api/devices/heartbeat` | 同账号设备心跳（设备名、NPS 隧道地址） |
 | GET | `/api/devices?exclude_device_id=...` | 同账号在线设备列表（排除当前设备） |
 | DELETE | `/api/devices/{device_id}` | 设备主动下线 |
@@ -524,16 +527,23 @@ python server\tests\preview_admin.py
 - RDP 依赖 Windows 自带 `mstsc.exe`；macOS/Linux 不支持该模块。
 - 客户端离线体验使用 `%APPDATA%\NexHub\demo` 下的真实示例文件，仅用于演示交互。
 
-工具箱插件扩展方式（zip 插件，独立进程）：
+插件扩展方式（zip 插件，独立进程）：
 
 ```text
 plugins/<manifest.id>/
-  manifest.json   # id/name/version/description/requirements
+  manifest.json   # id/name/version/description/requirements（必需）
   plugin.py       # 必须提供 create_window(context)
   icon.png        # 可选
+
+manifest.json 可选字段：
+  controls        # 工作空间页快捷控件（button / switch / select）
+  config_window   # 默认 true；false 表示没有独立配置窗口（如内存优化）
+  metrics         # 工作空间页实时指标：percent / bytes / count
 ```
 
 `plugin.py` 在独立进程中运行，`context` 由 `nexhub.plugin_api.PluginContext` 提供；插件 UI 使用 PyQt-Fluent-Widgets，主程序不 import 插件业务代码。插件包可以导入 `%APPDATA%\\NexHub\\plugins`，也可以通过插件广场 API 安装。插件广场 API 默认地址为 `http://47.108.130.177:8001/nexhub/plugin`，设置页可覆盖。
+
+声明 `metrics` 的插件，工作空间页会渲染「运行状态」卡片：百分比指标带绿/黄/红进度条，字节指标自动转人类可读单位，并展示上次优化结果；`config_window: false` 时工作空间页与管理弹窗都不再出现「打开配置窗口」，所有操作在页内完成（例如 memory_optimizer 1.2.0）。
 
 ```python
 def create_window(context):
@@ -552,7 +562,7 @@ python plugin_server/server.py --host 0.0.0.0 --port 8001
 
 插件广场网页版提供上传表单，上传会进入 `dist/pending` 审核队列；`GET/POST /nexhub/plugin/review` 是独立审核后台（站内登录页 + HttpOnly 会话 Cookie，默认账号 `admin`，密码在服务端 `review_password.txt`）。审核通过后才会写入公开 `index.json`，并移动到 `dist/downloads`。插件服务单独运行在 8001 端口，主站开源代码不包含审核密码。
 
-插件进程由主程序的 `PluginProcessManager` 启动和回收；主题变化通过进程 stdin 同步。工具箱已安装插件卡片使用“系统代理”开关控制后台宿主：开启后进程在后台运行，不会自动弹出插件窗口；点击“配置”才显示插件窗口，关闭窗口只隐藏、不结束进程，关闭开关才停止宿主。启用状态保存在 `active_plugins`，下次启动会在后台恢复。Clash-Verge内置版插件使用单一“系统代理”开关接管 `127.0.0.1:7890`，关闭或退出时恢复原系统代理；支持规则/全局/自定义三种模式、自动同步本机 Clash Verge 的完整规则（如 661 条）、Clash 风格规则编辑、流量与到期显示。节点选择和四色延迟测速都在插件窗口/工具箱卡片内完成，测速使用 mihomo API 并发探测，不再弹出独立节点选择窗口。插件包内提供 `Country.mmdb`，GEOIP 规则不依赖 Clash Verge 目录。系统代理状态每秒轮询一次，Clash Verge 的系统代理开关变化后，插件窗口和工具箱卡片提示会自动更新。
+插件进程由主程序的 `PluginProcessManager` 启动和回收；主题变化通过进程 stdin 同步。插件工作空间页使用“系统代理”开关控制后台宿主：开启后进程在后台运行，不会自动弹出插件窗口；点击“配置”才显示插件窗口，关闭窗口只隐藏、不结束进程，关闭开关才停止宿主。启用状态保存在 `active_plugins`，下次启动会在后台恢复。Clash-Verge内置版插件使用单一“系统代理”开关接管 `127.0.0.1:7890`，关闭或退出时恢复原系统代理；支持规则/全局/自定义三种模式、自动同步本机 Clash Verge 的完整规则（如 661 条）、Clash 风格规则编辑、流量与到期显示。节点选择和四色延迟测速都在插件窗口/工具箱卡片内完成，测速使用 mihomo API 并发探测，不再弹出独立节点选择窗口。插件包内提供 `Country.mmdb`，GEOIP 规则不依赖 Clash Verge 目录。系统代理状态每秒轮询一次，Clash Verge 的系统代理开关变化后，插件窗口和工具箱卡片提示会自动更新。
 
 ## 默认账号与首次运行提醒
 

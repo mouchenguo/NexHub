@@ -431,6 +431,47 @@ def main() -> int:
         check(admin_login.status_code == 303, "管理员登录")
         admin_dashboard = client.get("/admin", cookies=admin_login.cookies)
         check(admin_dashboard.status_code == 200 and "仪表盘" in admin_dashboard.text, "后台仪表盘")
+
+        # TestClient 会复用之前的 admin Cookie：临时摘除后再做匿名/权限断言
+        admin_cookie = client.cookies.get("nexhub_admin")
+        client.cookies.delete("nexhub_admin")
+        overview_anon = client.get("/api/admin/overview")
+        check(overview_anon.status_code == 401, "管理员概览需要登录")
+        overview_demo = client.get("/api/admin/overview", headers=demo_headers)
+        check(overview_demo.status_code == 403, "普通用户无法读取管理员概览")
+        if admin_cookie:
+            client.cookies.set("nexhub_admin", admin_cookie)
+        overview = client.get(
+            "/api/admin/overview",
+            params={"limit": 5},
+            cookies=admin_login.cookies,
+        )
+        payload = overview.json() if overview.status_code == 200 else {}
+        usage = payload.get("usage") or {}
+        check(
+            overview.status_code == 200
+            and {
+                "oss_used",
+                "oss_quota",
+                "oss_percent",
+                "active_shares",
+                "downloads",
+                "users",
+                "pending_users",
+            }
+            <= set(usage),
+            "管理员概览返回完整用量字段",
+        )
+        check(len(payload.get("logs") or []) <= 5, "管理员概览日志条数受 limit 限制")
+        check(
+            str((payload.get("server") or {}).get("web_url") or "").endswith("/admin"),
+            "管理员概览提供网页后台地址",
+        )
+        check(
+            int(usage.get("active_shares") or 0) >= 1
+            and int(usage.get("downloads") or 0) >= 1,
+            "管理员概览统计包含已发布共享与下载",
+        )
         for path, keyword in (
             ("/admin/users", "用户管理"),
             ("/admin/shares", "共享资源"),

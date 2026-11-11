@@ -3,14 +3,14 @@
     {
       "id": "memory_optimizer",
       "name": "内存优化",
-      "version": "1.1.1",
+      "version": "1.2.0",
       "description": "回收进程工作集，释放闲置内存，适合长期开机的工作站。",
       "requirements": "psutil>=5.9",
       "category": "系统工具",
       "glyph": "◍",
       "download_url": "downloads/memory_optimizer.zip",
-      "sha256": "3174164B7222B78C313D25B5AA663CE0FE466BFFC00686AEF4E3B42B04C3D81E",
-      "size": 5395,
+      "sha256": "1226B7776559CBFD73E1ADA0D1E2EFBD6586948BF68095C7440D4F10362B44B7",
+      "size": 5902,
       "icon_url": "icons/memory_optimizer.png"
     },
     {

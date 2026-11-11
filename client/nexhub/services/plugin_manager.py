@@ -20,7 +20,7 @@ REQUIRED_MANIFEST_FIELDS = ("id", "name", "version", "description", "requirement
 
 
 class ToolPlugin(ABC):
-    """旧版插件类型，仅保留用于源码兼容；工具箱不再在主进程 import 插件。"""
+    """旧版插件类型，仅保留用于源码兼容；主程序不再 import 插件代码。"""
 
     plugin_id: str = ""
     name: str = "未命名插件"
@@ -66,6 +66,25 @@ class PluginRecord:
             item
             for item in raw
             if isinstance(item, dict) and str(item.get("id") or "").strip()
+        ]
+
+    @property
+    def has_config_window(self) -> bool:
+        """是否有独立配置窗口；manifest 写 ``config_window: false`` 可关闭。"""
+        if not isinstance(self.manifest, dict):
+            return True
+        return bool(self.manifest.get("config_window", True))
+
+    @property
+    def metrics(self) -> list[dict]:
+        """manifest 声明的实时指标，供工作空间页展示（如内存占用）。"""
+        raw = self.manifest.get("metrics") if isinstance(self.manifest, dict) else None
+        if not isinstance(raw, list):
+            return []
+        return [
+            item
+            for item in raw
+            if isinstance(item, dict) and str(item.get("key") or "").strip()
         ]
 
     @classmethod
@@ -144,6 +163,11 @@ class PluginManager:
 
     def all_plugins(self) -> list[PluginRecord]:
         return list(self._plugins.values())
+
+    def installed_ids(self) -> list[str]:
+        """所有已安装插件 ID（不受 disabled 过滤影响）。"""
+        return sorted(self._plugins)
+
 
     def get(self, plugin_id: str) -> PluginRecord | None:
         return self._plugins.get(plugin_id)

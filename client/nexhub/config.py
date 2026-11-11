@@ -125,10 +125,17 @@ class AppConfig:
     demo_mode: bool = False
     # 插件广场 API 地址（默认值固定；设置页可修改）
     plugin_market_url: str = "http://47.108.130.177:8001/nexhub/plugin"
-    # 不加载到工具箱的插件 ID
+    # 旧版插件过滤字段（仅用于老配置迁移，新逻辑不再写入）
     disabled_plugins: list[str] = field(default_factory=list)
-    # 用户通过开关启用的插件；下次启动时在后台恢复运行（不自动弹窗）
+    # 插件宿主进程是否在运行；下次启动时在后台恢复（不自动弹窗）
     active_plugins: list[str] = field(default_factory=list)
+    # ---------------- 工作空间（v0.1.7+） ----------------
+    # 隐藏的内置页面 id；home / settings 为固定项，读写时强制忽略
+    workspace_hidden_pages: list[str] = field(default_factory=list)
+    # 已加载到工作空间的插件 id（有侧栏选项卡）；与“进程是否运行”解耦
+    workspace_loaded_plugins: list[str] = field(default_factory=list)
+    # 预留的选项卡顺序（第一阶段只写不读，固定“内置在前、插件在后”）
+    workspace_tab_order: list[str] = field(default_factory=list)
 
     # ------------------------------------------------------------------
     @classmethod
@@ -147,7 +154,7 @@ class AppConfig:
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "AppConfig":
         theme = str(raw.get("theme", "dark"))
-        return cls(
+        config = cls(
             theme=theme if theme in THEME_CHOICES else "dark",
             server_url=normalize_server_url(str(raw.get("server_url", ""))) or "http://127.0.0.1:8000",
             download_dir=str(raw.get("download_dir") or default_download_dir()),
@@ -179,7 +186,26 @@ class AppConfig:
                 for item in raw.get("active_plugins", [])
                 if isinstance(item, str)
             ],
+            workspace_hidden_pages=[
+                str(item)
+                for item in raw.get("workspace_hidden_pages", [])
+                if isinstance(item, str)
+            ],
+            workspace_loaded_plugins=[
+                str(item)
+                for item in raw.get("workspace_loaded_plugins", [])
+                if isinstance(item, str)
+            ],
+            workspace_tab_order=[
+                str(item)
+                for item in raw.get("workspace_tab_order", [])
+                if isinstance(item, str)
+            ],
         )
+        # 运行期标记，不是 dataclass 字段，因此不会被 to_dict() 写盘。
+        # 老版本升级时缺少该键：由 WorkspaceRegistry 按“已安装且未禁用”初始化。
+        config.workspace_bootstrap = "workspace_loaded_plugins" not in raw
+        return config
 
     # ------------------------------------------------------------------
     def to_dict(self) -> dict[str, Any]:

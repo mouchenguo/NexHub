@@ -1,7 +1,8 @@
-"""内存优化外部插件：独立进程 + 自有窗口。"""
+"""内存优化外部插件：独立进程 + 可选窗口（工作空间页内展示为主）。"""
 from __future__ import annotations
 
 import logging
+import time
 
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
@@ -19,10 +20,32 @@ from nexhub.widgets.common import make_button, make_card, section_header
 from nexhub.workers import FunctionWorker
 
 
+class Runtime:
+    """窗口与控制器共享的“上次优化结果”，供工作空间页展示。"""
+
+    def __init__(self) -> None:
+        self.last_freed = 0
+        self.last_at = ""
+        self.optimized = 0
+        self.skipped = 0
+        self.elapsed = 0.0
+
+    def update(self, result: dict) -> None:
+        try:
+            self.last_freed = int(result.get("freed") or 0)
+            self.optimized = int(result.get("optimized") or 0)
+            self.skipped = int(result.get("skipped") or 0)
+            self.elapsed = float(result.get("elapsed") or 0.0)
+        except (TypeError, ValueError):
+            pass
+        self.last_at = time.strftime("%H:%M:%S")
+
+
 class MemoryWindow(QWidget):
-    def __init__(self, context, parent: QWidget | None = None):
+    def __init__(self, context, runtime: Runtime | None = None, parent: QWidget | None = None):
         super().__init__(parent)
         self.context = context
+        self.runtime = runtime or Runtime()
         self.optimizer = MemoryOptimizer()
         self._worker: FunctionWorker | None = None
         self._build()
@@ -110,6 +133,7 @@ class MemoryWindow(QWidget):
         self._worker.start()
 
     def _on_optimized(self, result: dict) -> None:
+        self.runtime.update(result)
         self.refresh_stats()
         self.result.setText(
             f"优化完成：处理 {result['optimized']} 个进程，跳过 {result['skipped']} 个，"
@@ -129,24 +153,37 @@ class MemoryWindow(QWidget):
 
 
 class MemoryController:
-    """供 NexHub 主界面卡片直接调用的轻量控制器。"""
+    """供 NexHub 工作空间页直接调用的轻量控制器。"""
 
     def __init__(self, context, window: MemoryWindow):
         self.context = context
         self.window = window
         self.optimizer = window.optimizer
+        self.runtime = window.runtime
 
     def state(self) -> dict:
         try:
             stats = self.optimizer.stats()
         except Exception as exc:  # noqa: BLE001
             return {"error": str(exc)}
-        return {"stats": stats, "percent": int(stats.get("percent") or 0)}
+        return {
+            "stats": stats,
+            "percent": int(stats.get("percent") or 0),
+            "used": int(stats.get("used") or 0),
+            "total": int(stats.get("total") or 0),
+            "available": int(stats.get("available") or 0),
+            "process_count": int(stats.get("process_count") or 0),
+            "last_freed": int(self.runtime.last_freed or 0),
+            "last_optimized_at": self.runtime.last_at,
+            "last_optimized": int(self.runtime.optimized or 0),
+            "last_skipped": int(self.runtime.skipped or 0),
+        }
 
     def invoke(self, action: str, payload: dict) -> dict:
         if action != "optimize":
             raise ValueError(f"不支持的操作：{action}")
         result = self.optimizer.optimize()
+        self.runtime.update(result)
         self.window.refresh_stats()
         self.context.log("memory optimize completed from NexHub quick action")
         return {"result": result, "state": self.state()}

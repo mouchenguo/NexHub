@@ -1,4 +1,4 @@
-"""工具箱中的 NPS 隧道管理面板。"""
+"""设置页中的 NPS 隧道管理面板。"""
 from __future__ import annotations
 
 from PyQt6.QtCore import Qt

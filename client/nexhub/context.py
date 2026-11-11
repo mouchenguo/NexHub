@@ -19,6 +19,7 @@ from .services.rdp_service import RdpService
 from .services.share_service import ShareService
 from .services.tunnel_service import TunnelService
 from .theme import ThemeManager
+from .workspace import WorkspaceRegistry
 
 if TYPE_CHECKING:
     from .app import MainWindow
@@ -29,6 +30,7 @@ class AppContext(QObject):
     server_compat_changed = pyqtSignal(object)
     profile_changed = pyqtSignal(dict)
     logout_requested = pyqtSignal()
+    workspace_changed = pyqtSignal()
 
     def __init__(
         self,
@@ -54,6 +56,10 @@ class AppContext(QObject):
         self.plugins = PluginManager(set(config.disabled_plugins))
         self.plugins.reload_custom()
         self.plugin_processes = PluginProcessManager(self)
+        self.workspace = WorkspaceRegistry(config, is_admin=self.is_admin)
+        # 首次升级时按“已安装且未禁用”初始化工作空间插件
+        if self.workspace.normalize(self.plugins.installed_ids()):
+            config.save()
         self.theme.theme_changed.connect(self._sync_plugin_theme)
         self.main_window: "MainWindow | None" = None
         self._shutdown_done = False
@@ -89,6 +95,78 @@ class AppContext(QObject):
     def navigate(self, page_id: str) -> None:
         if self.main_window:
             self.main_window.navigate(page_id)
+
+    # ------------------------------------------------------------------ 工作空间
+    def save_workspace(self) -> None:
+        """清洗并持久化工作空间配置，随后通知界面重建导航。"""
+        self.workspace.normalize(self.plugins.installed_ids())
+        self.config.save()
+        self.workspace_changed.emit()
+
+    def set_workspace_page_hidden(self, page_id: str, hidden: bool) -> bool:
+        if not self.workspace.set_hidden(page_id, hidden):
+            return False
+        self.save_workspace()
+        return True
+
+    def load_plugin_workspace(self, plugin_id: str, *, start: bool = True) -> bool:
+        """把插件加载到工作空间：创建选项卡，可选同时启动宿主进程。"""
+        record = self.plugins.get(plugin_id)
+        if record is None:
+            raise ValueError("插件未安装")
+        changed = self.workspace.load_plugin(plugin_id)
+        if start:
+            try:
+                self.plugin_processes.start(record, hidden=True)
+                self._set_plugin_active(plugin_id, True)
+            except Exception as exc:  # noqa: BLE001 - 启动失败不阻止选项卡建立
+                self.notify(f"插件「{record.name}」启动失败：{exc}", "warning")
+        self.save_workspace()
+        return changed
+
+    def unload_plugin_workspace(self, plugin_id: str) -> bool:
+        """从工作空间移除：停止宿主、删除选项卡，插件包与数据保留。"""
+        changed = self.workspace.unload_plugin(plugin_id)
+        self.plugin_processes.stop(plugin_id)
+        self._set_plugin_active(plugin_id, False)
+        self.save_workspace()
+        return changed
+
+    def uninstall_plugin(self, plugin_id: str) -> None:
+        """彻底卸载：停止进程、删除插件包与数据、清理所有配置引用。"""
+        from .services.plugin_market import uninstall_plugin as _uninstall
+
+        record = self.plugins.get(plugin_id)
+        name = record.name if record else plugin_id
+        self.plugin_processes.stop(plugin_id)
+        _uninstall(plugin_id)
+        self.workspace.unload_plugin(plugin_id)
+        self.config.disabled_plugins = [
+            item for item in self.config.disabled_plugins if item != plugin_id
+        ]
+        self.config.workspace_tab_order = [
+            item for item in self.config.workspace_tab_order if item != plugin_id
+        ]
+        self.plugins.reload_custom()
+        self.save_workspace()
+        self.notify(f"插件「{name}」已卸载", "success")
+
+    def _set_plugin_active(self, plugin_id: str, active: bool) -> None:
+        ids = set(self.config.active_plugins)
+        if active:
+            ids.add(plugin_id)
+        else:
+            ids.discard(plugin_id)
+        self.config.active_plugins = sorted(ids)
+        self.config.save()
+
+    def set_plugin_active(self, plugin_id: str, active: bool) -> None:
+        """公开接口：记录插件宿主是否应在下次启动时自动恢复。"""
+        self._set_plugin_active(plugin_id, active)
+
+    def open_workspace_manager(self) -> None:
+        if self.main_window:
+            self.main_window.open_workspace_manager()
 
     def login(self, identifier: str, password: str, remember: bool = False) -> dict:
         """使用用户名或昵称登录；不把 token / 密码明文写盘。"""
@@ -156,6 +234,9 @@ class AppContext(QObject):
         self.config.demo_mode = False
         self.config.remember_me = bool(remember)
         self.config.credential_enc = credential_enc
+        # 登录后角色可能从普通用户变为管理员：仪表盘选项卡随之出现
+        self.workspace.set_admin(self.config.role == "admin")
+        self.workspace.normalize(self.plugins.installed_ids())
         self.config.save()
         self.devices.start()
         self.connection_changed.emit(True)
@@ -175,6 +256,10 @@ class AppContext(QObject):
         self.devices.stop()
         self.config.enter_demo()
         self.apply_server_compat({})
+        # 退出登录即失去管理员身份，仪表盘选项卡需要立即移除
+        self.workspace.set_admin(False)
+        self.workspace.normalize(self.plugins.installed_ids())
+        self.workspace_changed.emit()
         self.connection_changed.emit(False)
         self.logout_requested.emit()
 

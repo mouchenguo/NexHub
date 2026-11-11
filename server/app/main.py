@@ -14,7 +14,19 @@ from .common import client_ip
 from .compat import API_VERSION, MIN_CLIENT_VERSION, server_info
 from .config import settings
 from .oss_service import oss_service
-from .routers import account, admin, auth, dashboard, devices, nps_hosts_api, public, shares, site, tunnels
+from .routers import (
+    account,
+    admin,
+    admin_api,
+    auth,
+    dashboard,
+    devices,
+    nps_hosts_api,
+    public,
+    shares,
+    site,
+    tunnels,
+)
 
 logger = logging.getLogger("nexhub.server")
 
@@ -50,6 +62,7 @@ for router in (
     tunnels.router,
     account.router,
     public.router,
+    admin_api.router,
     admin.router,
 ):
     app.include_router(router)

@@ -112,6 +112,12 @@ class ApiClient:
     def dashboard(self) -> dict:
         return self._request("GET", "/api/dashboard")
 
+    def admin_overview(self, limit: int = 30) -> dict:
+        """管理员全局概览；普通用户调用时服务端返回 403。"""
+        return self._request(
+            "GET", "/api/admin/overview", params={"limit": int(limit)}
+        )
+
     # ------------------------------------------------------------------ 共享
     def list_shares(self, scope: str = "public") -> list[dict]:
         data = self._request("GET", "/api/shares", params={"scope": scope})
