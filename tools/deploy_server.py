@@ -47,6 +47,23 @@ def local_path(name: str) -> Path | None:
     return None
 
 
+def load_key(path: Path):
+    """按私钥类型自动加载（Ed25519 / RSA / ECDSA）。"""
+    errors = []
+    for loader in (
+        getattr(paramiko.PKey, "from_path", None),
+        lambda value: paramiko.Ed25519Key.from_private_key_file(value),
+        lambda value: paramiko.RSAKey.from_private_key_file(value),
+    ):
+        if loader is None:
+            continue
+        try:
+            return loader(str(path))
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"{type(exc).__name__}: {exc}")
+    raise SystemExit("无法加载私钥：" + "；".join(errors))
+
+
 def connect(args: argparse.Namespace) -> paramiko.SSHClient:
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -62,8 +79,7 @@ def connect(args: argparse.Namespace) -> paramiko.SSHClient:
         key = Path(args.key).expanduser()
         if not key.is_file():
             raise SystemExit(f"私钥不存在：{key}")
-        pkey = paramiko.RSAKey.from_private_key_file(str(key))
-        client.connect(pkey=pkey, look_for_keys=False, allow_agent=False, **options)
+        client.connect(pkey=load_key(key), look_for_keys=False, allow_agent=False, **options)
     else:
         password = args.password or os.environ.get("NEXHUB_SSH_PASSWORD", "")
         if not password:
