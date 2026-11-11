@@ -1,21 +1,26 @@
 {
-  "version": "0.1.6-beta",
-  "download_url": "NexHub-v0.1.6-beta.exe",
+  "version": "0.1.7-beta",
+  "download_url": "NexHub-v0.1.7-beta.exe",
   "page_url": "./",
   "server_download_url": "NexHub-Server-Deploy.zip",
   "server_bundle_url": "NexHub-Server-Bundle.zip",
-  "published_at": "2026-10-24",
+  "published_at": "2026-10-30",
   "notes": [
-    "Clash-Verge内置版 1.4.2：自动同步本机 Clash Verge 661 条规则，节点选择与四色并发测速内嵌在插件窗口/卡片",
-    "修复插件卸载未删除数据目录的问题，重装不会再复用旧规则、旧节点和旧系统代理状态",
-    "v0.1.5 单文件客户端继续使用优化后的 legacy onefile 回退资产，新旧客户端均可通过 latest.json 更新",
-    "客户端继续提供 onedir 便携版和 Inno Setup 安装包，安装到 Program Files 并支持开机自启"
+    "工作空间模式：主页成为唯一固定入口，侧栏动态生成；添加选项卡可隐藏/恢复内置页面，隐藏页面保留实例与输入状态",
+    "插件安装与加载分离：安装完成后询问是否加入工作空间；插件选项卡提供 manifest 快捷控件，配置窗口仍在独立进程运行",
+    "工具箱拆分为独立的插件广场页面；仪表盘改为管理员专属，新增只读接口 GET /api/admin/overview（普通用户 403）",
+    "Clash-Verge内置版 1.4.3：系统代理状态每秒同步，关闭 Clash Verge 后插件窗口与卡片提示自动更新",
+    "服务端新增 OSS 公网/内网 endpoint 切换，只切换访问地址，不迁移对象、无需数据库升级"
   ],
-  "sha256": "5738DB4CC2B2B78E441498FCCE37724EB3372366048B6A6A7DB8F3BEE0170265",
-  "server_sha256": "BB18C6AED0A84EF96F51A5D5ACD3EDF8EE2EF5DB7A1CECE7FFD9295727B0A5E9",
-  "installer_url": "NexHub-Setup-0.1.6-beta.exe",
-  "installer_sha256": "0710DA43B5AADA2AD6C3E1E2D400F85477EBE668E6064EBF375527098F231221",
+  "sha256": "BEAC559D629A416EB7C0844B3F96A10764AF2E4A61237C2D7CF9C172CC5D373B",
+  "size": 69789026,
+  "server_sha256": "86AA2825D8BDFD450F5BD269DAE6FB1EB1F1A548870B5E77A2370B3B7E357B33",
+  "server_size": 90592,
+  "installer_url": "NexHub-Setup-0.1.7-beta.exe",
+  "installer_sha256": "0128481A1F96182C622BF7211B909BCC7B9C9D80A3EFF2672FB58A516A788A6C",
+  "installer_size": 54889975,
   "installer": true,
-  "portable_url": "NexHub-v0.1.6-beta-win64.zip",
-  "portable_sha256": "FBCCD1326A1D8AAC91EF2D2D6FB4E26470BA6AA64F4578D942FDE7379A08C3CA"
+  "portable_url": "NexHub-v0.1.7-beta-win64.zip",
+  "portable_sha256": "2B20B3A6CCBB357CF8CDAFAC4CB0FD2F05032D3987BFA1C05D52BD4C730E932C",
+  "portable_size": 72567139
 }

@@ -130,16 +130,16 @@
     <main>
       <section class="hero">
         <div>
-          <div class="badge"><span class="dot"></span> v0.1.6-beta 预发行</div>
+          <div class="badge"><span class="dot"></span> v0.1.7-beta 预发行</div>
           <h1>把文件与远程桌面<br><span>放进同一个工作台</span></h1>
           <p class="lead">NexHub 是面向 Windows 的共享与远程主机客户端：文件共享、OSS 长期缓存、临时穿透、RDP 主机、同账号在线设备和 NPS 隧道集中管理。</p>
           <div class="actions" id="download">
-            <a class="btn btn-primary" href="NexHub-Setup-0.1.6-beta.exe" download>↓ 下载 Windows 安装包</a>
-            <a class="btn btn-ghost" href="NexHub-v0.1.6-beta.exe" download>旧客户端单文件</a>
+            <a class="btn btn-primary" href="NexHub-Setup-0.1.7-beta.exe" download>↓ 下载 Windows 安装包</a>
+            <a class="btn btn-ghost" href="NexHub-v0.1.7-beta.exe" download>旧客户端单文件</a>
             <a class="btn btn-ghost" href="NexHub-Server-Deploy.zip">服务端一键部署包</a>
             <a class="btn btn-ghost" href="latest.json">查看更新信息</a>
           </div>
-          <div class="meta">Windows 10 / 11 · 安装包 / 单文件回退 / 便携版 · 当前预发行版 v0.1.6-beta</div>
+          <div class="meta">Windows 10 / 11 · 安装包 / 单文件回退 / 便携版 · 当前预发行版 v0.1.7-beta</div>
         </div>
         <div class="preview" aria-hidden="true">
           <div class="preview-inner">
@@ -185,13 +185,13 @@
             </ul>
           </div>
           <div class="card" id="notes">
-            <div class="eyebrow">Release Notes</div><h2 style="font-size:24px;margin-bottom:16px">v0.1.6-beta</h2>
+            <div class="eyebrow">Release Notes</div><h2 style="font-size:24px;margin-bottom:16px">v0.1.7-beta</h2>
             <ul class="changelog">
-              <li>Clash-Verge内置版插件升级到 1.4.2：自动同步本机 Clash Verge 661 条规则，规则模式、自定义网站和订阅导入并存。</li>
-              <li>节点选择内嵌到插件窗口和工具箱卡片，使用 Clash Verge 风格四色延迟；测速改为 10 路并发、10 秒超时并取两次最小值。</li>
-              <li>插件包内置 Country.mmdb，GEOIP 规则不依赖 Clash Verge 目录；卸载插件会同时清理数据目录。</li>
-              <li>工具箱状态与节点延迟显示优化，移除重复系统代理开关和配置预览卡片。</li>
-              <li>v0.1.5 单文件客户端继续保留优化后的 legacy onefile 回退资产；新客户端使用安装包或 onedir 便携版。</li>
+              <li>工作空间模式：主页成为唯一固定入口，侧栏按配置动态生成；「添加选项卡」可隐藏/恢复内置页面，隐藏页面保留实例与输入状态。</li>
+              <li>插件安装与加载分离：安装完成后询问是否加入工作空间；插件选项卡提供 manifest 快捷控件，配置窗口仍在独立进程中运行，并区分「从工作空间移除」与「卸载」。</li>
+              <li>原「工具箱」拆分：插件广场成为独立页面；仪表盘改为管理员专属（全站用量 + 最近系统日志 + 网页后台入口），新增只读接口 <code>GET /api/admin/overview</code>（普通用户 403）。</li>
+              <li>Clash-Verge内置版 1.4.3：系统代理状态每秒同步，关闭 Clash Verge 后插件窗口与卡片提示自动更新。</li>
+              <li>服务端新增 OSS 公网/内网 endpoint 切换（管理后台「OSS 系统配置」），只切换访问地址，不迁移对象、无需数据库升级。</li>
             </ul>
           </div>
         </div>
@@ -199,7 +199,7 @@
     </main>
 
     <footer>
-      <span>NexHub v0.1.6-beta · 文件共享与远程主机 · <a href="https://github.com/mouchenguo/NexHub" target="_blank" rel="noreferrer">GitHub</a></span>
+      <span>NexHub v0.1.7-beta · 文件共享与远程主机 · <a href="https://github.com/mouchenguo/NexHub" target="_blank" rel="noreferrer">GitHub</a></span>
       <span>更新清单：<a href="latest.json"><code>latest.json</code></a></span>
     </footer>
   </div>
