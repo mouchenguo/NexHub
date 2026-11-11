@@ -9,6 +9,20 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
+    document.querySelectorAll("form[data-busy]").forEach((form) => {
+        form.addEventListener("submit", (event) => {
+            if (event.defaultPrevented) {
+                return;
+            }
+            const button = form.querySelector("button[type='submit']") || form.querySelector("button");
+            if (!button) {
+                return;
+            }
+            button.disabled = true;
+            button.textContent = form.dataset.busy || "处理中…";
+        });
+    });
+
     document.querySelectorAll(".flash").forEach((flash) => {
         window.setTimeout(() => {
             flash.style.transition = "opacity .4s ease";

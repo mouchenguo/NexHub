@@ -64,8 +64,10 @@ OSS_PREFIX=nexhub/shares
 
 <section class="card">
     <div class="card-head">
-        <div><h2>服务端检查更新</h2><p>从 GitHub Releases / 自定义更新源比较版本；只检查，不自动覆盖运行中的服务端</p></div>
-        {% if update_check %}
+        <div><h2>服务端检查更新</h2><p>从下载镜像（47）/ GitHub 一键下载并安装服务端；装完提示重启生效</p></div>
+        {% if pending_restart %}
+        <span class="badge badge-orange">待重启</span>
+        {% elif update_check %}
         <span class="badge {{ 'badge-orange' if update_check.update_available else 'badge-green' }}">{{ '发现新版本' if update_check.update_available else '已是最新' }}</span>
         {% elif update_error %}
         <span class="badge badge-red">检查失败</span>
@@ -76,6 +78,23 @@ OSS_PREFIX=nexhub/shares
     {% if update_error %}
     <div class="inline-warning">检查失败：{{ update_error }}</div>
     {% endif %}
+
+    {% if pending_restart %}
+    <div class="inline-warning">
+        已安装 v{{ pending_restart.version }}（原 v{{ pending_restart.previous_version }}，{{ pending_restart.applied_at }}），重启服务端后生效。
+        {% if restart_hint %}重启方式：{{ restart_hint }}。{% endif %}
+        备份目录：<code class="mono">{{ pending_restart.backup }}</code>
+    </div>
+    <form id="restart-form" method="post" action="/admin/settings/restart"
+          data-confirm="立即重启服务端？正在连接的客户端会短暂断开。"
+          data-busy="正在重启…">
+        <div class="card-actions">
+            <button class="btn btn-primary btn-sm" type="submit">立即重启服务端</button>
+            <a class="btn btn-ghost btn-sm" href="/admin/settings">稍后再说</a>
+        </div>
+    </form>
+    {% endif %}
+
     {% if update_check %}
     <div class="kv-list">
         <div><span>当前版本</span><strong>v{{ update_check.current_version }}</strong></div>
@@ -88,7 +107,7 @@ OSS_PREFIX=nexhub/shares
         {% endif %}
     </div>
     {% if update_check.update_available %}
-    <div class="inline-warning">发现服务端新版本 v{{ update_check.latest_version }}。请先备份数据库和 <code>.env</code>，再按部署文档升级；后台不会自动替换服务端文件。</div>
+    <div class="inline-warning">发现服务端新版本 v{{ update_check.latest_version }}。一键更新会下载并校验 SHA-256，备份当前 <code>app/</code> 后安装；<code>.env</code>、<code>data/</code>、<code>downloads/</code> 不会被改动，安装完成后由你决定是否立即重启。</div>
     {% else %}
     <p class="muted small">当前服务端已是最新版本 v{{ update_check.current_version }}。如果发布包已更新但版本号未变化，检查结果不会变化。</p>
     {% endif %}
@@ -98,19 +117,41 @@ OSS_PREFIX=nexhub/shares
     </ul>
     {% endif %}
     {% else %}
-    <p class="muted small">点击“检查更新”会读取更新源并比较服务端版本，不会自动下载或覆盖文件。更新源：<code>{{ update_feed_url }}</code></p>
+    <p class="muted small">点击“检查更新”会读取下载镜像 / GitHub Releases 并比较服务端版本，不会自动覆盖文件。</p>
     {% endif %}
+
     <div class="card-actions">
         {% if update_check and update_check.update_available %}
-        <a class="btn btn-primary btn-sm" href="{{ update_check.server_download_url }}" target="_blank" rel="noopener">下载服务端部署包</a>
-        <a class="btn btn-secondary btn-sm" href="{{ update_check.release_url }}" target="_blank" rel="noopener">查看 Release</a>
+        <form method="post" action="/admin/settings/apply-update"
+              data-confirm="将下载并安装服务端 v{{ update_check.latest_version }}，覆盖 app/ 与 run.py（保留 .env 与 data/），继续？"
+              data-busy="正在下载并安装…">
+            <button class="btn btn-primary btn-sm" type="submit">一键更新到 v{{ update_check.latest_version }}</button>
+        </form>
+        <a class="btn btn-secondary btn-sm" href="{{ update_check.server_download_url }}" target="_blank" rel="noopener">下载部署包</a>
+        <a class="btn btn-ghost btn-sm" href="{{ update_check.release_url }}" target="_blank" rel="noopener">查看 Release</a>
         <a class="btn btn-ghost btn-sm" href="/admin/settings?check=1">重新检查</a>
         {% else %}
         <a class="btn btn-primary btn-sm" href="/admin/settings?check=1">检查更新</a>
         {% endif %}
         <a class="btn btn-ghost btn-sm" href="/downloads/" target="_blank" rel="noopener">本地下载页</a>
     </div>
+    <p class="muted small">更新镜像：<code>{{ update_mirror_url }}</code>；镜像不可用时自动回退 <code>{{ update_feed_url }}</code>。</p>
 </section>
+
+{% if ask_restart %}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        var form = document.getElementById("restart-form");
+        var target = "{{ pending_restart.version }}";
+        if (!form) {
+            return;
+        }
+        if (window.confirm("服务端已更新到 v" + target + "，是否立即重启使新版本生效？\n\n选择“取消”后可稍后在本页手动重启。")) {
+            form.submit();
+        }
+    });
+</script>
+{% endif %}
 
 <section class="card">
     <div class="card-head"><div><h2>安全与部署建议</h2><p>生产环境上线前逐项确认</p></div></div>

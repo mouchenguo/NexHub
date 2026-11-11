@@ -1,0 +1,64 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<section class="card">
+    <div class="card-head">
+        <div><h2>正在重启服务端</h2><p>{{ detail }}</p></div>
+        <span class="badge badge-blue">重启中</span>
+    </div>
+    <div class="kv-list">
+        <div><span>重启前版本</span><strong>v{{ current_version }}</strong></div>
+        <div><span>待生效版本</span><strong>v{{ target_version }}</strong></div>
+        <div><span>重启方式</span><strong>{{ mode }}</strong></div>
+        {% if command %}<div><span>启动命令</span><strong class="mono">{{ command }}</strong></div>{% endif %}
+    </div>
+    <p class="muted small" id="restart-status">等待服务端恢复，恢复后会自动返回系统设置…</p>
+    <div class="card-actions">
+        <a class="btn btn-secondary btn-sm" href="/admin/settings">返回系统设置</a>
+    </div>
+</section>
+<script>
+    (function () {
+        var status = document.getElementById("restart-status");
+        var tries = 0;
+        var sawDown = false;
+
+        function goBack(version) {
+            status.textContent = "服务端已恢复，当前版本 v" + version + "，正在返回系统设置…";
+            window.setTimeout(function () {
+                window.location.href = "/admin/settings?msg=" +
+                    encodeURIComponent("服务端已重启，当前版本 v" + version);
+            }, 900);
+        }
+
+        function poll() {
+            tries += 1;
+            fetch("/api/health", { cache: "no-store" })
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error("not ready");
+                    }
+                    return response.json();
+                })
+                .then(function (data) {
+                    var version = (data && data.version) || "";
+                    if (sawDown || (version && version !== "{{ current_version }}")) {
+                        goBack(version || "{{ target_version }}");
+                        return;
+                    }
+                    if (tries > 40) {
+                        status.textContent = "服务已响应，但版本未变化。请手动确认 systemctl status nexhub。";
+                        return;
+                    }
+                    window.setTimeout(poll, 1500);
+                })
+                .catch(function () {
+                    sawDown = true;
+                    status.textContent = "服务端正在重启（第 " + tries + " 次探测）…";
+                    window.setTimeout(poll, 1500);
+                });
+        }
+
+        window.setTimeout(poll, 1200);
+    })();
+</script>
+{% endblock %}

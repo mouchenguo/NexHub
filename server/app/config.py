@@ -79,6 +79,14 @@ class Settings:
         ).strip()
         or "https://api.github.com/repos/mouchenguo/NexHub/releases"
     )
+    update_mirror_url: str = (
+        _env(
+            "NEXHUB_UPDATE_MIRROR",
+            "http://47.108.130.177:8000/nexhub/downloads",
+        ).strip().rstrip("/")
+        or "http://47.108.130.177:8000/nexhub/downloads"
+    )
+    update_install_requirements: bool = _env_bool("NEXHUB_UPDATE_PIP", True)
     web_base: str = _env("NEXHUB_WEB_BASE", "").rstrip("/")
     plugin_market_url: str = (
         _env("NEXHUB_PLUGIN_MARKET_URL", "http://47.108.130.177:8001/nexhub").strip().rstrip("/")

@@ -9,12 +9,13 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import requests
 
 DEFAULT_UPDATE_FEED = "https://api.github.com/repos/mouchenguo/NexHub/releases"
 SERVER_PACKAGE_NAME = "NexHub-Server-Deploy.zip"
+MIRROR_MANIFEST = "latest.json"
 RELEASES_PER_PAGE = 20
 
 
@@ -161,12 +162,8 @@ def _from_manifest(data: dict, feed_url: str, current_version: str) -> ServerUpd
     )
 
 
-def check_for_server_update(
-    current_version: str,
-    feed_url: str = DEFAULT_UPDATE_FEED,
-    timeout: int = 8,
-) -> ServerUpdateInfo:
-    """读取更新源并返回服务端版本比较结果。"""
+def _from_feed(feed_url: str, current_version: str, timeout: int) -> ServerUpdateInfo:
+    """读取 GitHub Releases / 自定义更新源。"""
     try:
         response = requests.get(
             feed_url,
@@ -209,3 +206,50 @@ def check_for_server_update(
     if isinstance(data, dict):
         return _from_manifest(data, feed_url, current_version)
     raise ValueError("更新源格式无法识别")
+
+
+def _from_mirror(mirror_url: str, current_version: str, timeout: int) -> ServerUpdateInfo:
+    """读取下载镜像上的 ``latest.json``（默认走 47 下载站，国内更快）。"""
+    manifest_url = f"{mirror_url.rstrip('/')}/{MIRROR_MANIFEST}"
+    try:
+        response = requests.get(
+            manifest_url,
+            timeout=timeout,
+            headers={
+                "Accept": "application/json",
+                "User-Agent": "NexHub-Server-Update-Check",
+            },
+        )
+        response.raise_for_status()
+        data = response.json()
+    except requests.RequestException as exc:
+        raise RuntimeError(f"无法连接下载镜像：{exc}") from exc
+    except ValueError as exc:
+        raise ValueError("下载镜像返回的不是有效 JSON") from exc
+    if not isinstance(data, dict):
+        raise ValueError("下载镜像清单格式无法识别")
+    info = _from_manifest(data, manifest_url, current_version)
+    host = urlparse(mirror_url).hostname or mirror_url
+    info.source = f"下载镜像 {host}"
+    return info
+
+
+def check_for_server_update(
+    current_version: str,
+    feed_url: str = DEFAULT_UPDATE_FEED,
+    timeout: int = 8,
+    mirror_url: str = "",
+) -> ServerUpdateInfo:
+    """优先读下载镜像的 latest.json，失败再回退 GitHub Releases。"""
+    mirror_error = ""
+    if mirror_url:
+        try:
+            return _from_mirror(mirror_url, current_version, timeout)
+        except (RuntimeError, ValueError) as exc:
+            mirror_error = str(exc)
+    try:
+        return _from_feed(feed_url, current_version, timeout)
+    except (RuntimeError, ValueError) as exc:
+        if mirror_error:
+            raise RuntimeError(f"{mirror_error}；GitHub 回退失败：{exc}") from exc
+        raise

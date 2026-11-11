@@ -27,6 +27,7 @@ from .routers import (
     site,
     tunnels,
 )
+from .update_apply import clear_pending
 
 logger = logging.getLogger("nexhub.server")
 
@@ -35,6 +36,7 @@ logger = logging.getLogger("nexhub.server")
 async def lifespan(app: FastAPI):
     db.init_db()
     oss_service.restore_network()
+    clear_pending()
     app.state.started_at = datetime.now(timezone.utc)
     logger.info("NexHub server started, db=%s", settings.db_path)
     yield

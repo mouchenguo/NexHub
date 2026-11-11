@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -25,9 +26,20 @@ from ..registration import (
     set_auto_approve,
     status_error,
 )
+from ..restart_service import (
+    RestartUnsupported,
+    restart_hint,
+    schedule_restart,
+    strategy as restart_strategy,
+)
 from ..security import hash_password, verify_password
 from ..share_ops import cancel_share, fetch_share, remove_share
 from ..templating import render
+from ..update_apply import (
+    UpdateError,
+    apply_server_update,
+    read_pending,
+)
 from ..update_service import check_for_server_update
 
 router = APIRouter(tags=["admin"])
@@ -591,7 +603,9 @@ def admin_settings(request: Request, admin: dict = Depends(admin_page_user)):
     ):
         try:
             update_check = check_for_server_update(
-                settings.version, settings.update_feed_url
+                settings.version,
+                settings.update_feed_url,
+                mirror_url=settings.update_mirror_url,
             )
             db.log_event(
                 "info",
@@ -611,6 +625,13 @@ def admin_settings(request: Request, admin: dict = Depends(admin_page_user)):
                 user_id=admin["id"],
                 ip=client_ip(request),
             )
+    pending = read_pending()
+    ask_restart = bool(pending) and request.query_params.get("restart", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
     context.update(
         {
             "cfg": settings,
@@ -621,6 +642,10 @@ def admin_settings(request: Request, admin: dict = Depends(admin_page_user)):
             "update_check": update_check,
             "update_error": update_error,
             "update_feed_url": settings.update_feed_url,
+            "update_mirror_url": settings.update_mirror_url,
+            "pending_restart": pending,
+            "ask_restart": ask_restart,
+            "restart_hint": restart_hint() if pending else "",
             "message": request.query_params.get("msg", ""),
             "message_type": request.query_params.get("type", "success"),
         }
@@ -650,6 +675,92 @@ def admin_settings_update(
         ip=client_ip(request),
     )
     return _redirect("/admin/settings", "系统设置已保存")
+
+
+@router.post("/admin/settings/apply-update")
+def admin_apply_update(
+    request: Request,
+    force: str = Form(default=""),
+    admin: dict = Depends(admin_page_user),
+):
+    """一键更新：下载 → 校验 → 备份 → 安装，完成后提示重启。"""
+    force_apply = force.strip().lower() in ("1", "true", "yes", "on")
+    try:
+        info = check_for_server_update(
+            settings.version,
+            settings.update_feed_url,
+            mirror_url=settings.update_mirror_url,
+        )
+        result = apply_server_update(
+            info,
+            mirror_url=settings.update_mirror_url,
+            force=force_apply,
+        )
+    except Exception as exc:
+        message = str(exc) or exc.__class__.__name__
+        db.log_event(
+            "error",
+            "system",
+            f"一键更新服务端失败：{message}",
+            user_id=admin["id"],
+            ip=client_ip(request),
+        )
+        return _redirect("/admin/settings", f"一键更新失败：{message}", "error")
+
+    backup_name = Path(str(result.get("backup", ""))).name or "未备份"
+    db.log_event(
+        "warning",
+        "system",
+        f"一键更新服务端：v{result.get('previous_version')} → v{result.get('version')}，"
+        f"备份 {result.get('backup')}，等待重启生效",
+        user_id=admin["id"],
+        ip=client_ip(request),
+    )
+    return _redirect(
+        "/admin/settings?restart=1",
+        f"已安装 v{result.get('version')}（备份 {backup_name}），重启服务端后生效",
+    )
+
+
+@router.post("/admin/settings/restart")
+def admin_restart_server(
+    request: Request,
+    admin: dict = Depends(admin_page_user),
+):
+    """重启服务端，让刚安装的版本生效。"""
+    pending = read_pending()
+    try:
+        outcome = schedule_restart()
+    except RestartUnsupported as exc:
+        db.log_event(
+            "warning",
+            "system",
+            f"服务端自动重启不可用：{exc}",
+            user_id=admin["id"],
+            ip=client_ip(request),
+        )
+        return _redirect("/admin/settings", f"自动重启不可用：{exc}", "error")
+    except Exception as exc:
+        return _redirect("/admin/settings", f"重启失败：{exc}", "error")
+
+    db.log_event(
+        "warning",
+        "system",
+        f"管理员触发服务端重启（{outcome['mode']}）：{outcome['detail']}",
+        user_id=admin["id"],
+        ip=client_ip(request),
+    )
+    context = _base_context(admin, "settings", "重启服务端")
+    context.update(
+        {
+            "mode": outcome["mode"],
+            "detail": outcome["detail"],
+            "command": " ".join(outcome.get("command") or []),
+            "target_version": pending.get("version", settings.version),
+            "current_version": settings.version,
+        }
+    )
+    return render(request, "admin/restarting.html", context)
 
 
 @router.post("/admin/settings/rotate-secret")

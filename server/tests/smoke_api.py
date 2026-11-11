@@ -10,6 +10,7 @@ import os
 import shutil
 import sys
 import unicodedata
+import zipfile
 from pathlib import Path
 from unittest.mock import Mock, patch
 from urllib.parse import unquote
@@ -29,7 +30,7 @@ sys.path.insert(0, str(SERVER_ROOT))
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-from app import db, update_service  # noqa: E402
+from app import db, restart_service, update_apply, update_service  # noqa: E402
 from app.main import app  # noqa: E402
 from app.oss_service import derive_oss_endpoints  # noqa: E402
 from app.routers import admin as admin_router  # noqa: E402
@@ -616,9 +617,164 @@ def main() -> int:
             update_page.status_code == 200
             and "发现新版本" in update_page.text
             and "v0.2.0-beta" in update_page.text
-            and "下载服务端部署包" in update_page.text
+            and "一键更新到 v0.2.0-beta" in update_page.text
+            and "下载部署包" in update_page.text
             and "abc123" in update_page.text,
-            "后台检查服务端更新并显示下载入口",
+            "后台检查服务端更新并显示一键更新入口",
+        )
+
+        mirror_payload = {
+            "version": "0.3.0-beta",
+            "page_url": "./",
+            "server_download_url": "NexHub-Server-Deploy.zip",
+            "server_sha256": "def456",
+            "published_at": "2026-11-01",
+            "notes": ["服务端一键更新"],
+        }
+        mirror_response = Mock()
+        mirror_response.raise_for_status.return_value = None
+        mirror_response.json.return_value = mirror_payload
+        with patch("app.update_service.requests.get", return_value=mirror_response):
+            mirror_info = update_service.check_for_server_update(
+                "0.1.0-beta",
+                "https://example.test/releases",
+                mirror_url="http://47.108.130.177:8000/nexhub/downloads",
+            )
+        check(
+            mirror_info.latest_version == "0.3.0-beta"
+            and mirror_info.update_available
+            and mirror_info.server_download_url
+            == "http://47.108.130.177:8000/nexhub/downloads/NexHub-Server-Deploy.zip"
+            and mirror_info.server_sha256 == "def456"
+            and "47.108.130.177" in mirror_info.source,
+            "检查更新优先读取 47 下载镜像清单",
+        )
+
+        update_root = PROJECT_ROOT / ".tmp" / "update_apply_test"
+        if update_root.exists():
+            shutil.rmtree(update_root)
+        bundle_path = update_root / "bundle" / "NexHub-Server-Bundle.zip"
+        bundle_path.parent.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(bundle_path, "w") as archive:
+            archive.writestr("run.py", "# new run\n")
+            archive.writestr("requirements.txt", "fastapi\n")
+            archive.writestr("app/main.py", "# new main\n")
+            archive.writestr("app/config.py", 'version: str = "0.3.0-beta"\n')
+        deploy_path = update_root / "NexHub-Server-Deploy.zip"
+        with zipfile.ZipFile(deploy_path, "w") as archive:
+            archive.write(bundle_path, "NexHub-Server-Bundle.zip")
+
+        installed = update_root / "installed"
+        (installed / "app").mkdir(parents=True, exist_ok=True)
+        (installed / "run.py").write_text("# old run\n", encoding="utf-8")
+        (installed / "app" / "main.py").write_text("# old main\n", encoding="utf-8")
+        (installed / "app" / "config.py").write_text(
+            'version: str = "0.1.0-beta"\n', encoding="utf-8"
+        )
+        (installed / "requirements.txt").write_text("fastapi\n", encoding="utf-8")
+        (installed / ".env").write_text("NEXHUB_KEEP=1\n", encoding="utf-8")
+
+        install_info = update_service.ServerUpdateInfo(
+            current_version="0.1.0-beta",
+            latest_version="0.3.0-beta",
+            update_available=True,
+            release_url="http://47.108.130.177:8000/nexhub/downloads/",
+            server_download_url="http://47.108.130.177:8000/nexhub/downloads/NexHub-Server-Deploy.zip",
+            published_at="2026-11-01",
+            notes=["服务端一键更新"],
+            source="下载镜像 47.108.130.177",
+            checked_at="2026-11-01 00:00 UTC",
+            latest_tag="v0.3.0-beta",
+            server_sha256=update_apply.sha256_file(deploy_path),
+        )
+
+        def fake_download(urls, dest, expected_sha256="", log=None):
+            shutil.copy2(deploy_path, dest)
+            if expected_sha256 and update_apply.sha256_file(dest) != expected_sha256.upper():
+                raise AssertionError("SHA-256 校验未通过")
+            return dest, urls[0]
+
+        with patch.object(update_apply, "download_package", fake_download), patch.object(
+            update_apply.settings, "update_install_requirements", False
+        ):
+            applied = update_apply.apply_server_update(install_info, base_dir=installed)
+
+        check(
+            "0.3.0-beta" in (installed / "app" / "config.py").read_text(encoding="utf-8")
+            and (installed / "run.py").read_text(encoding="utf-8").strip() == "# new run"
+            and (installed / ".env").read_text(encoding="utf-8").strip() == "NEXHUB_KEEP=1"
+            and Path(applied["backup"], "app", "main.py").is_file(),
+            "一键更新替换程序文件、保留 .env 并生成备份",
+        )
+        check(
+            update_apply.read_pending().get("version") == "0.3.0-beta",
+            "一键更新写入待重启标记",
+        )
+
+        pending_page = client.get("/admin/settings", cookies=admin_login.cookies)
+        check(
+            pending_page.status_code == 200
+            and "待重启" in pending_page.text
+            and "立即重启服务端" in pending_page.text
+            and "0.3.0-beta" in pending_page.text,
+            "后台显示待重启提示与重启按钮",
+        )
+
+        with patch.object(
+            admin_router,
+            "schedule_restart",
+            return_value={
+                "mode": "systemd",
+                "detail": "已请求退出，systemd 将在数秒内自动拉起（nexhub.service）",
+                "command": ["python", "run.py", "--host", "0.0.0.0", "--port", "8000"],
+            },
+        ):
+            restart_page = client.post("/admin/settings/restart", cookies=admin_login.cookies)
+        check(
+            restart_page.status_code == 200
+            and "正在重启服务端" in restart_page.text
+            and "0.3.0-beta" in restart_page.text,
+            "管理员触发重启并显示重启进度页",
+        )
+
+        with patch.object(admin_router, "check_for_server_update", return_value=fake_update), patch.object(
+            admin_router,
+            "apply_server_update",
+            return_value={
+                "version": "0.2.0-beta",
+                "previous_version": "0.1.0-beta",
+                "applied_at": "2026-11-11 00:00 UTC",
+                "backup": str(update_root / "backups" / "server-0.1.0-beta-1"),
+                "source": "http://47.108.130.177:8000/nexhub/downloads/NexHub-Server-Deploy.zip",
+                "requirements": "unchanged",
+            },
+        ):
+            apply_response = client.post(
+                "/admin/settings/apply-update", data={}, cookies=admin_login.cookies
+            )
+        apply_location = apply_response.headers.get("location", "")
+        check(
+            apply_response.status_code == 303
+            and "restart=1" in apply_location
+            and "0.2.0-beta" in unquote(apply_location),
+            "一键更新接口安装后跳转并要求重启",
+        )
+
+        bad_zip = update_root / "bad.zip"
+        with zipfile.ZipFile(bad_zip, "w") as archive:
+            archive.writestr("../evil.txt", "x")
+        try:
+            update_apply._safe_extract(bad_zip, update_root / "bad")
+            rejected = False
+        except update_apply.UpdateError:
+            rejected = True
+        check(rejected, "拒绝越界路径的部署包")
+
+        update_apply.clear_pending()
+        check(
+            restart_service.strategy() in ("self", "systemd", "command", "manual")
+            and restart_service.launch_command()[1].endswith("run.py"),
+            "重启策略与启动命令可解析",
         )
         users_page = client.get("/admin/users", cookies=admin_login.cookies)
         check(
