@@ -240,16 +240,28 @@ def check_for_server_update(
     timeout: int = 8,
     mirror_url: str = "",
 ) -> ServerUpdateInfo:
-    """优先读下载镜像的 latest.json，失败再回退 GitHub Releases。"""
-    mirror_error = ""
+    """同时读下载镜像和 GitHub Releases，取较新的版本。
+
+    镜像（47 下载站）不可用时只用 GitHub；镜像清单滞后时也不会漏掉
+    GitHub 上更高的版本，下载时仍会优先尝试镜像地址。
+    """
+    mirror_info: ServerUpdateInfo | None = None
+    feed_info: ServerUpdateInfo | None = None
+    errors: list[str] = []
     if mirror_url:
         try:
-            return _from_mirror(mirror_url, current_version, timeout)
+            mirror_info = _from_mirror(mirror_url, current_version, timeout)
         except (RuntimeError, ValueError) as exc:
-            mirror_error = str(exc)
+            errors.append(str(exc))
     try:
-        return _from_feed(feed_url, current_version, timeout)
+        feed_info = _from_feed(feed_url, current_version, timeout)
     except (RuntimeError, ValueError) as exc:
-        if mirror_error:
-            raise RuntimeError(f"{mirror_error}；GitHub 回退失败：{exc}") from exc
-        raise
+        errors.append(f"GitHub 更新源不可用：{exc}")
+
+    if mirror_info and feed_info:
+        if version_key(feed_info.latest_version) > version_key(mirror_info.latest_version):
+            return feed_info
+        return mirror_info
+    if mirror_info or feed_info:
+        return mirror_info or feed_info
+    raise RuntimeError("；".join(errors) or "无法获取服务端更新信息")

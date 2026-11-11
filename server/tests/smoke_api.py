@@ -650,6 +650,42 @@ def main() -> int:
             "检查更新优先读取 47 下载镜像清单",
         )
 
+        def fake_feed_get(url, **kwargs):
+            response = Mock()
+            response.raise_for_status.return_value = None
+            if "latest.json" in url:
+                response.json.return_value = {
+                    "version": "0.1.0-beta",
+                    "server_download_url": "NexHub-Server-Deploy.zip",
+                    "server_sha256": "stale",
+                }
+            else:
+                response.json.return_value = [
+                    {
+                        "tag_name": "v0.2.5-beta",
+                        "html_url": "https://example.test/releases/tag/v0.2.5-beta",
+                        "published_at": "2026-11-05T00:00:00Z",
+                        "body": "- 服务端检查更新",
+                        "assets": [],
+                    }
+                ]
+            return response
+
+        with patch("app.update_service.requests.get", side_effect=fake_feed_get):
+            mixed_info = update_service.check_for_server_update(
+                "0.1.0-beta",
+                "https://example.test/releases",
+                mirror_url="http://47.108.130.177:8000/nexhub/downloads",
+            )
+        check(
+            mixed_info.latest_version == "0.2.5-beta"
+            and mixed_info.update_available
+            and mixed_info.server_download_url.endswith(
+                "/download/v0.2.5-beta/NexHub-Server-Deploy.zip"
+            ),
+            "镜像清单滞后时采用 GitHub 上的更高版本",
+        )
+
         update_root = PROJECT_ROOT / ".tmp" / "update_apply_test"
         if update_root.exists():
             shutil.rmtree(update_root)

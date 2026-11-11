@@ -142,7 +142,7 @@ NexHub 面向个人和可信好友小范围使用：在本机一键发布文件/
   - NPS 配置：Bridge 可达性探测、域名/vkey 配置、活跃临时通道关闭；
   - 全局日志：认证、共享、下载、主机、OSS、管理、错误日志；
   - 系统设置：网页域名、注册自动审核开关、轮换后端签名密钥、服务端检查更新、部署信息与安全建议；
-  - 服务端检查更新：优先读取下载镜像 `47` 的 `latest.json`，失败自动回退 GitHub Releases（支持预发布），显示当前/最新版本、发布时间、服务端部署包和 SHA-256；
+  - 服务端检查更新：同时读取下载镜像 `47` 与 GitHub Releases（支持预发布），取较新的版本，显示当前/最新版本、发布时间、服务端部署包和 SHA-256；
   - 一键更新：下载 `NexHub-Server-Deploy.zip` → 校验 SHA-256 → 解开内层 bundle 并比对包内版本号 → 备份 `app/` 到 `data/backups/` → 替换 `app/` 与 `run.py`（保留 `.env`、`data/`、`downloads/`）→ 提示「是否立即重启服务端」；
   - 重启：systemd 部署靠 `Restart=always` 自动拉起；手动 / nohup 运行则由 `app/restart_helper.py` 脱离会话重启；两者都不支持时提示手动执行 `systemctl restart nexhub`。
 - **安全细节**：路径穿越防护、`token` 鉴权、管理员 HttpOnly Cookie、安全响应头、文件大小限制、流式传输。
