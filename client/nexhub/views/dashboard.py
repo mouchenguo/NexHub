@@ -26,6 +26,7 @@ from .base import BasePage
 
 LOGS_LIMIT = 30
 LEVEL_TONES = {"error": "#f85149", "warning": "#d29922", "info": "#58a6ff"}
+ACTIVITY_TONES = {"accent": "#58a6ff", "success": "#3fb950", "warning": "#d29922"}
 
 
 class DashboardPage(BasePage):
@@ -85,6 +86,7 @@ class DashboardPage(BasePage):
             "系统日志", f"最近 {LOGS_LIMIT} 条服务端全局日志"
         )
         logs_layout.addWidget(header)
+        self.logs_subtitle = header.findChildren(CaptionLabel)[-1]
         self.logs_layout = QVBoxLayout()
         self.logs_layout.setSpacing(0)
         logs_layout.addLayout(self.logs_layout)
@@ -123,6 +125,21 @@ class DashboardPage(BasePage):
         try:
             return {"ok": True, "data": self.ctx.api.admin_overview(LOGS_LIMIT)}
         except ApiError as exc:
+            if exc.status_code == 404:
+                try:
+                    return {
+                        "ok": True,
+                        "fallback": True,
+                        "data": self.ctx.api.dashboard(),
+                    }
+                except ApiError as inner:
+                    return {
+                        "ok": False,
+                        "status": inner.status_code,
+                        "message": inner.message,
+                    }
+                except Exception as inner:  # noqa: BLE001
+                    return {"ok": False, "status": 0, "message": str(inner)}
             return {"ok": False, "status": exc.status_code, "message": exc.message}
         except Exception as exc:  # noqa: BLE001
             return {"ok": False, "status": 0, "message": str(exc)}
@@ -132,7 +149,11 @@ class DashboardPage(BasePage):
             self._on_failed(result if isinstance(result, dict) else {})
             return
         payload = result.get("data") or {}
-        self._overview = payload if isinstance(payload, dict) else {}
+        payload = payload if isinstance(payload, dict) else {}
+        if result.get("fallback"):
+            self._apply_fallback(payload)
+            return
+        self._overview = payload
         self.banner.setVisible(False)
 
         usage = self._overview.get("usage") or {}
@@ -160,6 +181,59 @@ class DashboardPage(BasePage):
             f"服务端 v{server_version} · 运行 {uptime}" if server_version else ""
         )
         self._render_logs(self._overview.get("logs") or [])
+
+    def _apply_fallback(self, payload: dict) -> None:
+        """服务端 < 0.1.7：回落到用户级 /api/dashboard，保证页面有数据。"""
+        self._overview = {}
+        used = int(payload.get("oss_used") or 0)
+        quota = int(payload.get("oss_quota") or 0)
+        percent = int(round(used / quota * 100)) if quota else 0
+        self.oss_card.set_value(human_size(used), f"我的用量 · 配额 {human_size(quota)}")
+        self.share_card.set_value(str(int(payload.get("active_shares") or 0)), "我的活跃共享")
+        self.download_card.set_value(
+            str(int(payload.get("total_downloads") or 0)), "我的累计下载"
+        )
+        self.user_card.set_value("--", "需服务端 ≥ 0.1.7")
+        self.usage_label.setText(human_size(used))
+        self.percent_label.setText(f"{percent}%")
+        self.progress.setValue(max(0, min(100, percent)))
+        self.quota_label.setText(f"配额 {human_size(quota)} · 客户端 v{VERSION}")
+        server = payload.get("server") or {}
+        version = str(server.get("version") or "")
+        uptime = str(server.get("uptime") or "")
+        self.server_label.setText(
+            f"服务端 v{version} · 运行 {uptime}" if version else ""
+        )
+        self.logs_subtitle.setText("服务端未提供全局日志接口，以下为我的最近活动")
+        self._render_activity(payload.get("recent_activity") or [])
+        self._show_banner(
+            "当前服务端没有全站概览接口（需 ≥ 0.1.7），已切换为我的账号数据；"
+            "更新服务端后这里显示全站用量、注册用户与系统日志。",
+            FIF.INFO,
+        )
+
+    def _render_activity(self, items: list) -> None:
+        clear_layout(self.logs_layout)
+        rows = [item for item in items if isinstance(item, dict)]
+        if not rows:
+            self.logs_layout.addWidget(CaptionLabel("暂无最近活动。"))
+            return
+        for item in rows[:8]:
+            row = QWidget()
+            layout = QHBoxLayout(row)
+            layout.setContentsMargins(4, 6, 4, 6)
+            layout.setSpacing(10)
+            dot = CaptionLabel("●")
+            tone = ACTIVITY_TONES.get(str(item.get("tone") or ""), "#8b949e")
+            dot.setStyleSheet(f"color: {tone};")
+            dot.setMinimumWidth(16)
+            layout.addWidget(dot)
+            title = CaptionLabel(str(item.get("title") or ""))
+            title.setMinimumWidth(220)
+            layout.addWidget(title)
+            layout.addWidget(CaptionLabel(str(item.get("detail") or "")), 1)
+            layout.addWidget(CaptionLabel(relative_time(item.get("time"))))
+            self.logs_layout.addWidget(row)
 
     def _on_failed(self, result) -> None:
         if isinstance(result, dict):
