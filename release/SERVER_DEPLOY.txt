@@ -23,3 +23,11 @@ NexHub 服务端一键部署
   - 已有 /opt/nexhub/server/app 会先备份为 app.bak-时间戳；
   - 如果服务器已有 nexhub.service，会继续使用现有服务定义；
   - 首次部署且没有 .env 时，会从 .env.example 复制，请随后填写生产配置。
+
+首次部署之后：
+  - 登录 /admin →「系统设置」→「服务端检查更新」→「一键更新到 vX」，
+    后台会从 47 下载站拉取部署包、校验 SHA-256、备份 app/ 并安装；
+  - 安装完成后页面会询问「是否立即重启服务端」，确认后由 systemd
+    （Restart=always）自动拉起新版本，无需再手工 SSH 上传；
+  - 如需保留下载站的新包，把 release/ 下的 NexHub-Server-Deploy.zip、
+    NexHub-Server-Bundle.zip、latest.json 覆盖到 /opt/nexhub/server/downloads/。
