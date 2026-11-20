@@ -136,6 +136,8 @@ class AppConfig:
     workspace_loaded_plugins: list[str] = field(default_factory=list)
     # 预留的选项卡顺序（第一阶段只写不读，固定“内置在前、插件在后”）
     workspace_tab_order: list[str] = field(default_factory=list)
+    # 我的网盘排版：comfortable（宽松卡片）/ compact（紧凑列表），页面内一键切换
+    drive_density: str = "comfortable"
 
     # ------------------------------------------------------------------
     @classmethod
@@ -201,6 +203,7 @@ class AppConfig:
                 for item in raw.get("workspace_tab_order", [])
                 if isinstance(item, str)
             ],
+            drive_density=_density(raw.get("drive_density")),
         )
         # 运行期标记，不是 dataclass 字段，因此不会被 to_dict() 写盘。
         # 老版本升级时缺少该键：由 WorkspaceRegistry 按“已安装且未禁用”初始化。
@@ -270,3 +273,8 @@ def _as_int(value: Any, default: int) -> int:
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+def _density(value: Any) -> str:
+    text = str(value or "").strip().lower()
+    return text if text in ("comfortable", "compact") else "comfortable"

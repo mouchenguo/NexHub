@@ -451,6 +451,7 @@ class MySharesPage(BasePage):
     def __init__(self, ctx, parent=None):
         self._shares: list[dict] = []
         self._drive: dict = {}
+        self.compact = str(getattr(ctx.config, "drive_density", "comfortable")) == "compact"
         self._worker: FunctionWorker | None = None
         self._drive_worker: FunctionWorker | None = None
         self._upload_worker = None
@@ -477,6 +478,10 @@ class MySharesPage(BasePage):
         self.status_filter.setFixedWidth(120)
         row.addWidget(self.status_filter)
         row.addStretch(1)
+        self.density_button = make_button(
+            "", transparent=True, icon=FIF.ZOOM, on_click=self._toggle_density
+        )
+        row.addWidget(self.density_button)
         row.addWidget(
             make_button(
                 "网页网盘",
@@ -546,6 +551,33 @@ class MySharesPage(BasePage):
 
         self.type_filter.currentIndexChanged.connect(self._render)
         self.status_filter.currentIndexChanged.connect(self._render)
+        self._sync_density_button()
+        self._apply_density_layout()
+
+    # ------------------------------------------------------------------
+    def _toggle_density(self) -> None:
+        self.compact = not self.compact
+        self.ctx.config.drive_density = "compact" if self.compact else "comfortable"
+        try:
+            self.ctx.config.save()
+        except OSError:
+            pass
+        self._sync_density_button()
+        self._apply_density_layout()
+        self._render_drive()
+        self._render()
+        self.ctx.notify("已切换为紧凑列表" if self.compact else "已切换为宽松卡片", "success")
+
+    def _apply_density_layout(self) -> None:
+        self.list_layout.setSpacing(2 if self.compact else 10)
+        self.drive_layout.setSpacing(2 if self.compact else 4)
+
+    def _sync_density_button(self) -> None:
+        text = "紧凑视图" if not self.compact else "宽松视图"
+        self.density_button.setText(text)
+        self.density_button.setToolTip(
+            "切换网盘与共享列表的排版（紧凑列表 / 宽松卡片，选择会记住）"
+        )
 
     # ------------------------------------------------------------------
     def refresh(self) -> None:
@@ -586,33 +618,39 @@ class MySharesPage(BasePage):
         if not items:
             self.drive_layout.addWidget(CaptionLabel("网盘还是空的，点右上角「上传文件至网盘」开始。"))
             return
-        for item in items[:80]:
+        margins = (0, 1, 0, 1) if self.compact else (0, 4, 0, 4)
+        spacing = 4 if self.compact else 10
+        for item in items[:200]:
             row = QWidget()
             layout = QHBoxLayout(row)
-            layout.setContentsMargins(0, 4, 0, 4)
-            layout.setSpacing(10)
-            layout.addWidget(icon_widget(FIF.DOCUMENT, 18))
+            layout.setContentsMargins(*margins)
+            layout.setSpacing(spacing)
+            if not self.compact:
+                layout.addWidget(icon_widget(FIF.DOCUMENT, 18))
             name = CaptionLabel(str(item.get("name") or ""))
-            name.setMinimumWidth(220)
+            name.setMinimumWidth(160 if self.compact else 220)
             layout.addWidget(name, 1)
             layout.addWidget(CaptionLabel(human_size(int(item.get("size") or 0))))
             layout.addWidget(CaptionLabel(relative_time(item.get("created_at"))))
-            layout.addWidget(
-                make_button(
-                    "共享",
-                    transparent=True,
-                    icon=FIF.SHARE,
-                    on_click=lambda _=None, data=item: self._share_drive_item(data),
-                )
+            share_button = make_button(
+                "共享",
+                transparent=True,
+                icon=FIF.SHARE,
+                on_click=lambda _=None, data=item: self._share_drive_item(data),
             )
-            layout.addWidget(
-                make_button(
-                    "删除",
-                    transparent=True,
-                    icon=FIF.DELETE,
-                    on_click=lambda _=None, data=item: self._delete_drive_item(data),
-                )
+            delete_button = make_button(
+                "删除",
+                transparent=True,
+                icon=FIF.DELETE,
+                on_click=lambda _=None, data=item: self._delete_drive_item(data),
             )
+            if self.compact:
+                for button, hint in ((share_button, "共享这个文件"), (delete_button, "删除")):
+                    button.setText("")
+                    button.setToolTip(hint)
+                    button.setFixedSize(30, 26)
+            layout.addWidget(share_button)
+            layout.addWidget(delete_button)
             self.drive_layout.addWidget(row)
 
     def _upload_to_drive(self) -> None:
@@ -738,7 +776,53 @@ class MySharesPage(BasePage):
             return
         self.empty.hide()
         for share in filtered:
-            self.list_layout.addWidget(self._row(share))
+            self.list_layout.addWidget(
+                self._row_compact(share) if self.compact else self._row(share)
+            )
+
+    def _row_compact(self, share: dict) -> QWidget:
+        """紧凑模式：单行显示，操作按钮改为图标按钮。"""
+        is_oss = share.get("storage_type") == "oss"
+        active = share.get("status") == "active"
+        frame = QWidget()
+        row = QHBoxLayout(frame)
+        row.setContentsMargins(0, 1, 0, 1)
+        row.setSpacing(6)
+        row.addWidget(icon_widget(FIF.CLOUD if is_oss else FIF.SYNC, 16))
+        name = CaptionLabel(str(share.get("name") or "未命名共享"))
+        name.setMinimumWidth(180)
+        row.addWidget(name, 1)
+        row.addWidget(CaptionLabel("OSS" if is_oss else "临时"))
+        row.addWidget(CaptionLabel("活跃" if active else "已取消"))
+        row.addWidget(
+            CaptionLabel(
+                f"{share.get('file_count', 0)} 个 · {human_size(share.get('total_size', 0))}"
+                f" · {relative_time(share.get('created_at'))}"
+            )
+        )
+        copy_button = make_button(
+            "", transparent=True, icon=FIF.COPY, on_click=lambda: self._copy(share)
+        )
+        copy_button.setToolTip("复制链接")
+        copy_button.setFixedSize(30, 26)
+        if not self.ctx.shares.public_link(share):
+            copy_button.setEnabled(False)
+            copy_button.setToolTip("离线体验模式不生成公网链接")
+        row.addWidget(copy_button)
+        if active:
+            cancel_button = make_button(
+                "", transparent=True, icon=FIF.CANCEL, on_click=lambda: self._cancel(share)
+            )
+            cancel_button.setToolTip("取消共享")
+            cancel_button.setFixedSize(30, 26)
+            row.addWidget(cancel_button)
+        delete_button = make_button(
+            "", transparent=True, icon=FIF.DELETE, on_click=lambda: self._delete(share)
+        )
+        delete_button.setToolTip("删除共享")
+        delete_button.setFixedSize(30, 26)
+        row.addWidget(delete_button)
+        return frame
 
     def _row(self, share: dict) -> QWidget:
         frame, layout = make_card(18, 8)
