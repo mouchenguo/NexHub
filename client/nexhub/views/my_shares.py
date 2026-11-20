@@ -1,4 +1,4 @@
-"""我的共享：Fluent 发布对话框、列表管理与下载链接。"""
+"""我的网盘：Fluent 共享对话框、网盘文件列表与下载链接。"""
 from __future__ import annotations
 
 from pathlib import Path

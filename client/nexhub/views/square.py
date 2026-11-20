@@ -84,7 +84,7 @@ class SquarePage(BasePage):
 
         self.empty = EmptyState(
             "广场暂时安静",
-            "还没有人发布共享，去「我的共享」发布第一个吧。",
+            "还没有人发布共享，去「我的网盘」上传文件并共享吧。",
             FIF.GLOBE,
             make_button(
                 "去发布共享",

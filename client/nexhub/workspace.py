@@ -42,7 +42,7 @@ class PageSpec:
 
 PAGE_SPECS: tuple[PageSpec, ...] = (
     PageSpec("home", "主页", "HOME", "功能导航与工作空间入口", fixed=True),
-    PageSpec("my_shares", "我的共享", "SHARE", "管理本人发布的所有共享"),
+    PageSpec("my_shares", "我的网盘", "CLOUD", "上传到网盘（OSS），随时共享"),
     PageSpec("square", "共享广场", "GLOBE", "浏览其他用户发布的公开共享"),
     PageSpec("rdp", "RDP 主机", "PROJECTOR", "远程桌面连接与内网主机"),
     PageSpec("plugin_market", "插件广场", "SHOPPING_CART", "浏览、安装与更新插件"),
