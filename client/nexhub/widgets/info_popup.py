@@ -4,13 +4,21 @@ from __future__ import annotations
 from typing import Callable
 
 from PyQt6.QtCore import QPoint, Qt, pyqtSignal
-from PyQt6.QtWidgets import QFrame, QHBoxLayout, QScrollArea, QVBoxLayout, QWidget
+from PyQt6.QtGui import QColor
+from PyQt6.QtWidgets import (
+    QFrame,
+    QGraphicsDropShadowEffect,
+    QHBoxLayout,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
+)
 from qfluentwidgets import (
     BodyLabel,
     CaptionLabel,
-    CardWidget,
     FluentIcon as FIF,
     StrongBodyLabel,
+    isDarkTheme,
 )
 
 from ..file_utils import human_size, relative_time
@@ -42,11 +50,17 @@ class ShareInfoPopup(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
 
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setContentsMargins(12, 12, 12, 12)
 
-        self.card = CardWidget()
-        self.card.setBorderRadius(12)
+        self.card = QFrame()
+        self.card.setObjectName("ShareInfoCard")
+        self.card.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.card.setFixedWidth(392)
+        shadow = QGraphicsDropShadowEffect(self.card)
+        shadow.setBlurRadius(28)
+        shadow.setColor(QColor(0, 0, 0, 130))
+        shadow.setOffset(0, 8)
+        self.card.setGraphicsEffect(shadow)
         layout = QVBoxLayout(self.card)
         layout.setContentsMargins(18, 16, 18, 16)
         layout.setSpacing(8)
@@ -94,6 +108,20 @@ class ShareInfoPopup(QWidget):
         outer.addWidget(self.card)
 
     # ------------------------------------------------------------------
+    def _apply_style(self) -> None:
+        """浮窗必须不透明：深色用 #262626、浅色用白底，避免和背后列表重叠。"""
+        if isDarkTheme():
+            background, border = "#2f2f2f", "#5c5c5c"
+        else:
+            background, border = "#ffffff", "#cfd7e3"
+        self.card.setStyleSheet(
+            "QFrame#ShareInfoCard {"
+            f"background-color: {background};"
+            f"border: 1px solid {border};"
+            "border-radius: 12px;"
+            "}"
+        )
+
     def show_for(
         self,
         share: dict,
@@ -102,6 +130,7 @@ class ShareInfoPopup(QWidget):
         on_browse: Callable[[], None] | None = None,
         public_link: str = "",
     ) -> None:
+        self._apply_style()
         is_oss = share.get("storage_type") == "oss"
         title = str(share.get("name") or "未命名共享")
         self.title_label.setText(title)
