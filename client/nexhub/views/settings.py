@@ -60,6 +60,7 @@ class SettingsPage(BasePage):
         self._update_auto = False
         self._update_dialog: UpdateDialog | None = None
         self._syncing_theme = False
+        self._syncing_density = False
         self._syncing_autostart = False
         self._folders: list[tuple[FIF, str, str, QWidget]] = []
         super().__init__(ctx, parent)
@@ -77,6 +78,11 @@ class SettingsPage(BasePage):
         self._build_about()
         self._build_navigation()
         self._sync_theme_segment()
+        self._sync_density_segment()
+
+    def showEvent(self, event) -> None:  # noqa: N802 - Qt 命名
+        super().showEvent(event)
+        self._sync_density_segment()
 
     @staticmethod
     def _group_content() -> tuple[QWidget, QVBoxLayout]:
@@ -161,12 +167,52 @@ class SettingsPage(BasePage):
         hint = CaptionLabel("主题选择会保存到本地 config.json，所有 Fluent 控件立即刷新。")
         hint.setWordWrap(True)
         layout.addWidget(hint)
+
+        density_row = QHBoxLayout()
+        density_row.addWidget(BodyLabel("列表排版"))
+        self.density_segment = SegmentedWidget()
+        self.density_segment.addItem("comfortable", "宽松卡片")
+        self.density_segment.addItem("compact", "紧凑列表")
+        self.density_segment.setFixedWidth(196)
+        self.density_segment.currentItemChanged.connect(self._on_density_segment)
+        density_row.addWidget(self.density_segment)
+        density_row.addStretch(1)
+        layout.addLayout(density_row)
+        density_hint = CaptionLabel(
+            "影响「我的网盘」与「共享广场」：紧凑列表单行显示更多条目，切换后立即生效并记住。"
+        )
+        density_hint.setWordWrap(True)
+        layout.addWidget(density_hint)
+
         self._add_group(
             FIF.BRIGHTNESS,
             "外观",
-            "深色 / 浅色 / 跟随系统",
+            "主题与列表排版",
             content,
         )
+
+    def _on_density_segment(self, route_key: str) -> None:
+        if self._syncing_density:
+            return
+        self.ctx.config.drive_density = "compact" if route_key == "compact" else "comfortable"
+        try:
+            self.ctx.config.save()
+        except OSError:
+            pass
+        self.ctx.notify(
+            "已切换为紧凑列表" if route_key == "compact" else "已切换为宽松卡片",
+            "success",
+        )
+
+    def _sync_density_segment(self) -> None:
+        if not hasattr(self, "density_segment"):
+            return
+        self._syncing_density = True
+        try:
+            compact = str(getattr(self.ctx.config, "drive_density", "comfortable")) == "compact"
+            self.density_segment.setCurrentItem("compact" if compact else "comfortable")
+        finally:
+            self._syncing_density = False
 
     def _on_theme_segment(self, route_key: str) -> None:
         if self._syncing_theme:

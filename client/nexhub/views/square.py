@@ -38,6 +38,7 @@ class SquarePage(BasePage):
 
     def __init__(self, ctx, parent=None):
         self._shares: list[dict] = []
+        self.compact = str(getattr(ctx.config, "drive_density", "comfortable")) == "compact"
         self._worker: FunctionWorker | None = None
         self._manifest_worker: FunctionWorker | None = None
         super().__init__(ctx, parent)
@@ -48,19 +49,19 @@ class SquarePage(BasePage):
         row.setSpacing(9)
         self.search = SearchLineEdit()
         self.search.setPlaceholderText("搜索共享、发布者...")
-        self.search.setFixedWidth(300)
+        self.search.setFixedWidth(220)
         self.search.textChanged.connect(self._render)
         row.addWidget(self.search)
 
         self.type_filter = ComboBox()
         self.type_filter.addItems(["全部类型", "OSS 长期缓存", "临时穿透"])
-        self.type_filter.setFixedWidth(150)
+        self.type_filter.setFixedWidth(140)
         self.type_filter.currentIndexChanged.connect(self._render)
         row.addWidget(self.type_filter)
 
         self.sort_combo = ComboBox()
         self.sort_combo.addItems(["最新发布", "名称 A-Z", "文件最多"])
-        self.sort_combo.setFixedWidth(120)
+        self.sort_combo.setFixedWidth(110)
         self.sort_combo.currentIndexChanged.connect(self._render)
         row.addWidget(self.sort_combo)
         row.addStretch(1)
@@ -96,6 +97,13 @@ class SquarePage(BasePage):
         self.empty.hide()
         self.content_layout.addWidget(self.empty)
         self.content_layout.addStretch(1)
+
+    def showEvent(self, event) -> None:  # noqa: N802 - Qt 命名
+        super().showEvent(event)
+        wanted = str(getattr(self.ctx.config, "drive_density", "comfortable")) == "compact"
+        if wanted != self.compact:
+            self.compact = wanted
+            self._render()
 
     # ------------------------------------------------------------------
     def refresh(self) -> None:
@@ -148,8 +156,48 @@ class SquarePage(BasePage):
                 self.empty.show()
             return
         self.empty.hide()
+        self.grid.setHorizontalSpacing(2 if self.compact else 14)
+        self.grid.setVerticalSpacing(2 if self.compact else 14)
         for index, share in enumerate(items):
-            self.grid.addWidget(self._card(share), index // 2, index % 2)
+            if self.compact:
+                self.grid.addWidget(self._row_compact(share), index, 0, 1, 2)
+            else:
+                self.grid.addWidget(self._card(share), index // 2, index % 2)
+
+    def _row_compact(self, share: dict) -> QWidget:
+        """紧凑模式：单行显示共享，操作收成小按钮。"""
+        is_oss = share.get("storage_type") == "oss"
+        row_host = QWidget()
+        row = QHBoxLayout(row_host)
+        row.setContentsMargins(0, 1, 0, 1)
+        row.setSpacing(8)
+        row.addWidget(icon_widget(FIF.CLOUD if is_oss else FIF.SYNC, 16))
+        title = CaptionLabel(str(share.get("name") or "未命名共享"))
+        title.setMinimumWidth(150)
+        row.addWidget(title, 1)
+        row.addWidget(
+            CaptionLabel(str(share.get("owner_display") or share.get("owner") or "未知用户"))
+        )
+        row.addWidget(CaptionLabel("OSS" if is_oss else "临时"))
+        row.addWidget(
+            CaptionLabel(
+                f"{share.get('file_count', 0)} 个 · {human_size(share.get('total_size', 0))}"
+                f" · {relative_time(share.get('created_at'))}"
+            )
+        )
+        copy_button = make_button(
+            "", transparent=True, icon=FIF.COPY, on_click=lambda: self._copy_link(share)
+        )
+        copy_button.setToolTip("复制链接")
+        copy_button.setFixedSize(30, 26)
+        if not self.ctx.shares.public_link(share):
+            copy_button.setEnabled(False)
+            copy_button.setToolTip("离线体验模式不生成公网链接")
+        row.addWidget(copy_button)
+        browse = make_button("浏览", transparent=True, icon=FIF.FOLDER)
+        browse.clicked.connect(lambda: self._browse(share, browse))
+        row.addWidget(browse)
+        return row_host
 
     def _card(self, share: dict) -> QWidget:
         card = CardWidget()

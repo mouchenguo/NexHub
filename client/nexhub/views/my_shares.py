@@ -28,6 +28,7 @@ from qfluentwidgets import (
     ProgressBar,
     RadioButton,
     SearchLineEdit,
+    SegmentedWidget,
     StrongBodyLabel,
     TitleLabel,
 )
@@ -464,25 +465,40 @@ class MySharesPage(BasePage):
         row.setSpacing(9)
         self.search = SearchLineEdit()
         self.search.setPlaceholderText("搜索共享名称或发布者...")
-        self.search.setFixedWidth(280)
+        self.search.setFixedWidth(220)
         self.search.textChanged.connect(self._render)
         row.addWidget(self.search)
 
         self.type_filter = ComboBox()
         self.type_filter.addItems(["全部类型", "OSS 长期缓存", "临时穿透"])
-        self.type_filter.setFixedWidth(150)
+        self.type_filter.setFixedWidth(140)
         row.addWidget(self.type_filter)
 
         self.status_filter = ComboBox()
         self.status_filter.addItems(["全部状态", "活跃", "已取消"])
-        self.status_filter.setFixedWidth(120)
+        self.status_filter.setFixedWidth(110)
         row.addWidget(self.status_filter)
         row.addStretch(1)
-        self.density_button = make_button(
-            "", transparent=True, icon=FIF.ZOOM, on_click=self._toggle_density
-        )
-        row.addWidget(self.density_button)
         row.addWidget(
+            make_button("刷新", transparent=True, icon=FIF.SYNC, on_click=self.refresh)
+        )
+        toolbar_layout.addLayout(row)
+
+        actions = QHBoxLayout()
+        actions.setSpacing(9)
+        actions.addWidget(
+            make_button(
+                "上传文件至网盘",
+                primary=True,
+                icon=FIF.UP,
+                on_click=self._upload_to_drive,
+            )
+        )
+        actions.addWidget(
+            make_button("共享文件", icon=FIF.SHARE, on_click=self._open_create)
+        )
+        actions.addStretch(1)
+        actions.addWidget(
             make_button(
                 "网页网盘",
                 transparent=True,
@@ -490,29 +506,16 @@ class MySharesPage(BasePage):
                 on_click=self._open_web_drive,
             )
         )
-        row.addWidget(
-            make_button("刷新", transparent=True, icon=FIF.SYNC, on_click=self.refresh)
-        )
-        row.addWidget(
-            make_button(
-                "上传文件至网盘",
-                icon=FIF.UP,
-                on_click=self._upload_to_drive,
-            )
-        )
-        row.addWidget(
-            make_button(
-                "共享文件", primary=True, icon=FIF.SHARE, on_click=self._open_create
-            )
-        )
-        toolbar_layout.addLayout(row)
+        toolbar_layout.addLayout(actions)
         self.content_layout.addWidget(toolbar)
 
         drive_card, drive_layout = make_card()
         drive_header = QHBoxLayout()
         drive_header.setSpacing(8)
         drive_header.addWidget(StrongBodyLabel("网盘文件"))
-        drive_header.addWidget(CaptionLabel("存在服务器 OSS，可随时共享或删除"))
+        drive_desc = CaptionLabel("存在服务器 OSS，可随时共享或删除")
+        drive_desc.setWordWrap(True)
+        drive_header.addWidget(drive_desc)
         drive_header.addStretch(1)
         self.drive_usage = CaptionLabel("正在载入网盘...")
         drive_header.addWidget(self.drive_usage)
@@ -547,37 +550,72 @@ class MySharesPage(BasePage):
         )
         self.empty.hide()
         self.content_layout.addWidget(self.empty)
+
+        footer = QHBoxLayout()
+        footer.setSpacing(8)
+        footer.addWidget(CaptionLabel("列表排版"))
+        self.density_segment = SegmentedWidget()
+        self.density_segment.addItem("comfortable", "宽松卡片")
+        self.density_segment.addItem("compact", "紧凑列表")
+        self.density_segment.setFixedWidth(196)
+        self.density_segment.currentItemChanged.connect(self._on_density_segment)
+        footer.addWidget(self.density_segment)
+        footer.addWidget(CaptionLabel("只影响我的网盘与共享广场，选择会记住"))
+        footer.addStretch(1)
+        self.content_layout.addLayout(footer)
         self.content_layout.addStretch(1)
 
         self.type_filter.currentIndexChanged.connect(self._render)
         self.status_filter.currentIndexChanged.connect(self._render)
-        self._sync_density_button()
         self._apply_density_layout()
+        self._sync_density_segment()
 
     # ------------------------------------------------------------------
-    def _toggle_density(self) -> None:
-        self.compact = not self.compact
-        self.ctx.config.drive_density = "compact" if self.compact else "comfortable"
+    def _on_density_segment(self, route_key: str) -> None:
+        if getattr(self, "_syncing_density", False):
+            return
+        self._set_compact(route_key == "compact", persist=True)
+
+    def _sync_density_segment(self, _value: object = None) -> None:
+        if not hasattr(self, "density_segment"):
+            return
+        self._syncing_density = True
         try:
-            self.ctx.config.save()
-        except OSError:
-            pass
-        self._sync_density_button()
+            self.density_segment.setCurrentItem(
+                "compact" if self.compact else "comfortable"
+            )
+        finally:
+            self._syncing_density = False
+
+    def _set_compact(self, compact: bool, persist: bool = False) -> None:
+        self.compact = bool(compact)
+        if persist:
+            self.ctx.config.drive_density = "compact" if self.compact else "comfortable"
+            try:
+                self.ctx.config.save()
+            except OSError:
+                pass
+            self.ctx.notify(
+                "已切换为紧凑列表" if self.compact else "已切换为宽松卡片", "success"
+            )
+        self._sync_density_segment()
         self._apply_density_layout()
         self._render_drive()
         self._render()
-        self.ctx.notify("已切换为紧凑列表" if self.compact else "已切换为宽松卡片", "success")
+
+    def _sync_density_from_config(self) -> None:
+        """设置页改过排版后，回到本页时自动跟随。"""
+        wanted = str(getattr(self.ctx.config, "drive_density", "comfortable")) == "compact"
+        if wanted != self.compact:
+            self._set_compact(wanted)
+
+    def showEvent(self, event) -> None:  # noqa: N802 - Qt 命名
+        super().showEvent(event)
+        self._sync_density_from_config()
 
     def _apply_density_layout(self) -> None:
         self.list_layout.setSpacing(2 if self.compact else 10)
         self.drive_layout.setSpacing(2 if self.compact else 4)
-
-    def _sync_density_button(self) -> None:
-        text = "紧凑视图" if not self.compact else "宽松视图"
-        self.density_button.setText(text)
-        self.density_button.setToolTip(
-            "切换网盘与共享列表的排版（紧凑列表 / 宽松卡片，选择会记住）"
-        )
 
     # ------------------------------------------------------------------
     def refresh(self) -> None:
@@ -616,7 +654,9 @@ class MySharesPage(BasePage):
             f"{len(items)} 个文件 · 已用 {human_size(used)} / {human_size(quota)}"
         )
         if not items:
-            self.drive_layout.addWidget(CaptionLabel("网盘还是空的，点右上角「上传文件至网盘」开始。"))
+            hint = CaptionLabel("网盘还是空的，点右上角「上传文件至网盘」开始。")
+            hint.setWordWrap(True)
+            self.drive_layout.addWidget(hint)
             return
         margins = (0, 1, 0, 1) if self.compact else (0, 4, 0, 4)
         spacing = 4 if self.compact else 10
