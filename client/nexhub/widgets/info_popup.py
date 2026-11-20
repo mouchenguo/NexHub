@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Callable
 
 from PyQt6.QtCore import QPoint, Qt, pyqtSignal
-from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QFrame, QHBoxLayout, QScrollArea, QVBoxLayout, QWidget
 from qfluentwidgets import (
     BodyLabel,
     CaptionLabel,
@@ -70,8 +70,17 @@ class ShareInfoPopup(QWidget):
 
         self.desc_label = BodyLabel("")
         self.desc_label.setWordWrap(True)
-        self.desc_label.setMaximumHeight(MAX_DESCRIPTION_HEIGHT)
-        layout.addWidget(self.desc_label)
+        self.desc_scroll = QScrollArea()
+        self.desc_scroll.setWidgetResizable(True)
+        self.desc_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.desc_scroll.setMaximumHeight(MAX_DESCRIPTION_HEIGHT)
+        self.desc_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.desc_scroll.setStyleSheet("background: transparent;")
+        self.desc_scroll.viewport().setAutoFillBackground(False)
+        self.desc_scroll.setWidget(self.desc_label)
+        layout.addWidget(self.desc_scroll)
 
         self.actions = QHBoxLayout()
         self.actions.setSpacing(8)
