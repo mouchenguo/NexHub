@@ -27,6 +27,7 @@ from ..widgets.common import (
     status_pill,
 )
 from ..widgets.file_browser import FileBrowserDialog
+from ..widgets.info_popup import ClickableRow, ShareInfoPopup
 from ..workers import FunctionWorker
 from .base import BasePage
 
@@ -167,7 +168,7 @@ class SquarePage(BasePage):
     def _row_compact(self, share: dict) -> QWidget:
         """紧凑模式：单行显示共享，操作收成小按钮。"""
         is_oss = share.get("storage_type") == "oss"
-        row_host = QWidget()
+        row_host = ClickableRow()
         row = QHBoxLayout(row_host)
         row.setContentsMargins(0, 1, 0, 1)
         row.setSpacing(8)
@@ -194,10 +195,27 @@ class SquarePage(BasePage):
             copy_button.setEnabled(False)
             copy_button.setToolTip("离线体验模式不生成公网链接")
         row.addWidget(copy_button)
+        info_button = make_button("", transparent=True, icon=FIF.INFO)
+        info_button.setToolTip("查看介绍")
+        info_button.setFixedSize(30, 26)
+        row.addWidget(info_button)
         browse = make_button("浏览", transparent=True, icon=FIF.FOLDER)
         browse.clicked.connect(lambda: self._browse(share, browse))
         row.addWidget(browse)
+        info_button.clicked.connect(lambda: self._show_info(share, info_button, browse))
+        row_host.clicked.connect(lambda: self._show_info(share, row_host, browse))
         return row_host
+
+    def _show_info(self, share: dict, anchor: QWidget, browse_button: QWidget) -> None:
+        if getattr(self, "_info_popup", None) is None:
+            self._info_popup = ShareInfoPopup(self)
+        self._info_popup.show_for(
+            share,
+            anchor,
+            on_copy=lambda: self._copy_link(share),
+            on_browse=lambda: self._browse(share, browse_button),
+            public_link=self.ctx.shares.public_link(share),
+        )
 
     def _card(self, share: dict) -> QWidget:
         card = CardWidget()

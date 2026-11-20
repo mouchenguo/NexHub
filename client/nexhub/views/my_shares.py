@@ -44,6 +44,7 @@ from ..widgets.common import (
     make_card,
     status_pill,
 )
+from ..widgets.info_popup import ClickableRow, ShareInfoPopup
 from ..workers import DriveUploadWorker, FunctionWorker, ShareCreateWorker
 from .base import BasePage
 
@@ -824,7 +825,7 @@ class MySharesPage(BasePage):
         """紧凑模式：单行显示，操作按钮改为图标按钮。"""
         is_oss = share.get("storage_type") == "oss"
         active = share.get("status") == "active"
-        frame = QWidget()
+        frame = ClickableRow()
         row = QHBoxLayout(frame)
         row.setContentsMargins(0, 1, 0, 1)
         row.setSpacing(6)
@@ -840,6 +841,10 @@ class MySharesPage(BasePage):
                 f" · {relative_time(share.get('created_at'))}"
             )
         )
+        info_button = make_button("", transparent=True, icon=FIF.INFO)
+        info_button.setToolTip("查看介绍")
+        info_button.setFixedSize(30, 26)
+        row.addWidget(info_button)
         copy_button = make_button(
             "", transparent=True, icon=FIF.COPY, on_click=lambda: self._copy(share)
         )
@@ -862,7 +867,19 @@ class MySharesPage(BasePage):
         delete_button.setToolTip("删除共享")
         delete_button.setFixedSize(30, 26)
         row.addWidget(delete_button)
+        info_button.clicked.connect(lambda: self._show_info(share, info_button))
+        frame.clicked.connect(lambda: self._show_info(share, frame))
         return frame
+
+    def _show_info(self, share: dict, anchor: QWidget) -> None:
+        if getattr(self, "_info_popup", None) is None:
+            self._info_popup = ShareInfoPopup(self)
+        self._info_popup.show_for(
+            share,
+            anchor,
+            on_copy=lambda: self._copy(share),
+            public_link=self.ctx.shares.public_link(share),
+        )
 
     def _row(self, share: dict) -> QWidget:
         frame, layout = make_card(18, 8)
