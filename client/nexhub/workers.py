@@ -49,6 +49,7 @@ class ShareCreateWorker(QThread):
         source: str,
         storage_type: str,
         description: str = "",
+        mirror_to_drive: bool = False,
         parent=None,
     ):
         super().__init__(parent)
@@ -56,6 +57,7 @@ class ShareCreateWorker(QThread):
         self.source = source
         self.storage_type = storage_type
         self.description = description
+        self.mirror_to_drive = mirror_to_drive
 
     def run(self) -> None:
         try:
@@ -63,9 +65,39 @@ class ShareCreateWorker(QThread):
                 self.source,
                 self.storage_type,
                 self.description,
+                mirror_to_drive=self.mirror_to_drive,
                 progress=lambda percent, message: self.progress_changed.emit(percent, message),
             )
             self.succeeded.emit(result)
+        except Exception as exc:  # noqa: BLE001
+            self.failed.emit(str(exc) or exc.__class__.__name__)
+
+
+class DriveUploadWorker(QThread):
+    """把本地文件上传到「我的网盘」（经 ECS 代理写入 OSS）。"""
+
+    progress_changed = pyqtSignal(int, str)
+    succeeded = pyqtSignal(object)
+    failed = pyqtSignal(str)
+
+    def __init__(self, api, files: list[tuple[str, str]], parent=None):
+        super().__init__(parent)
+        self.api = api
+        self.files = list(files)
+
+    def run(self) -> None:
+        total = max(1, len(self.files))
+        done = 0
+        try:
+            for local_path, relative in self.files:
+                self.progress_changed.emit(
+                    int(done / total * 100),
+                    f"正在上传到网盘（{done + 1}/{total}）：{relative}",
+                )
+                self.api.upload_drive_file(relative, local_path)
+                done += 1
+            self.progress_changed.emit(100, "已上传到网盘")
+            self.succeeded.emit({"count": done})
         except Exception as exc:  # noqa: BLE001
             self.failed.emit(str(exc) or exc.__class__.__name__)
 

@@ -51,6 +51,13 @@ class ShareCreateIn(BaseModel):
     total_size: int = Field(default=0, ge=0)
     file_count: int = Field(default=0, ge=0)
     local_url: str = Field(default="", max_length=512)
+    # True：OSS 共享的文件只上传一次，同时登记到我的网盘（复用同一对象）
+    mirror_to_drive: bool = False
+
+
+class DriveShareIn(BaseModel):
+    name: str = Field(default="", max_length=160)
+    description: str = Field(default="", max_length=500)
 
 
 class DeviceHeartbeatIn(BaseModel):

@@ -28,23 +28,32 @@ def quota_bytes() -> int:
         return settings.oss_default_quota_gb * GIB
 
 
-def user_oss_used(user_id: int) -> int:
+def drive_used(user_id: int) -> int:
     row = db.query_one(
-        "SELECT COALESCE(SUM(total_size), 0) AS used FROM shares "
-        "WHERE owner_id = ? AND storage_type = 'oss' AND status = 'active'",
+        "SELECT COALESCE(SUM(size), 0) AS used FROM drive_files WHERE owner_id = ?",
         (user_id,),
     )
     return int(row["used"]) if row else 0
 
 
-def global_oss_used(active_only: bool = True) -> int:
-    clause = (
-        "WHERE storage_type = 'oss' AND status = 'active'"
-        if active_only
-        else "WHERE storage_type = 'oss'"
+def user_oss_used(user_id: int) -> int:
+    """个人 OSS 占用：网盘文件 + 未镜像到网盘的 OSS 共享（镜像共享只算一次）。"""
+    row = db.query_one(
+        "SELECT COALESCE(SUM(total_size), 0) AS used FROM shares "
+        "WHERE owner_id = ? AND storage_type = 'oss' AND status = 'active' "
+        "AND COALESCE(mirror_to_drive, 0) = 0",
+        (user_id,),
     )
+    return (int(row["used"]) if row else 0) + drive_used(user_id)
+
+
+def global_oss_used(active_only: bool = True) -> int:
+    clause = "WHERE storage_type = 'oss' AND COALESCE(mirror_to_drive, 0) = 0"
+    if active_only:
+        clause += " AND status = 'active'"
     row = db.query_one(f"SELECT COALESCE(SUM(total_size), 0) AS used FROM shares {clause}")
-    return int(row["used"]) if row else 0
+    drive = db.query_one("SELECT COALESCE(SUM(size), 0) AS used FROM drive_files")
+    return int(row["used"] if row else 0) + int(drive["used"] if drive else 0)
 
 
 def web_base(request=None) -> str:

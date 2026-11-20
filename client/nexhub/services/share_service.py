@@ -53,11 +53,14 @@ class ShareService:
         storage_type: str,
         description: str = "",
         progress: ProgressCallback | None = None,
+        mirror_to_drive: bool = False,
     ) -> dict:
         """创建共享。耗时操作（扫描、上传）应在 QThread 中调用。
 
-        - ``temp``：启动内嵌服务并注册 token，关闭软件或取消共享即失效。
-        - ``oss``：文件经 ECS 后端流式中转上传，客户端不持有 OSS 密钥。
+        - ``temp``：启动内嵌服务并注册 token，关闭软件或取消共享即失效；
+          勾选同步网盘时，额外上传一份到我的网盘。
+        - ``oss``：文件经 ECS 后端流式中转上传，客户端不持有 OSS 密钥；
+          勾选同步网盘时复用同一次上传登记到网盘，不会重复上传。
         """
         self._report(progress, 2, "正在扫描文件...")
         manifest = collect_manifest(source)
@@ -68,6 +71,7 @@ class ShareService:
         if storage_type == "oss" and total >= OSS_LIMIT_BYTES:
             raise ValueError("文件总大小已达到 5GB，仅支持临时穿透共享")
         storage_type = "oss" if storage_type == "oss" else "temp"
+        mirror = bool(mirror_to_drive and self.online)
 
         public_base = temp_share_base(self.config, self.embedded.base_url)
         payload = {
@@ -78,6 +82,7 @@ class ShareService:
             "file_count": len(files),
             "files": files,
             "local_url": public_base if storage_type == "temp" else "",
+            "mirror_to_drive": bool(mirror and storage_type == "oss"),
         }
 
         if not self.online:
@@ -99,10 +104,34 @@ class ShareService:
         share = self.api.create_share(payload)
         if storage_type == "temp":
             self._start_local_share(share, manifest, files)
-            self._report(progress, 100, "临时共享已发布")
+            if mirror:
+                self._upload_to_drive(manifest, progress, source)
+            else:
+                self._report(progress, 100, "临时共享已发布")
         else:
             self._upload_to_oss(share, manifest, progress, source)
         return share
+
+    def _upload_to_drive(
+        self,
+        manifest: dict,
+        progress: ProgressCallback | None,
+        source: str,
+    ) -> None:
+        """临时共享勾选同步网盘时，额外上传一份到我的网盘（OSS）。"""
+        files = manifest["files"]
+        root = Path(source).resolve()
+        if root.is_file():
+            root = root.parent
+        total = max(1, len(files))
+        for index, item in enumerate(files, start=1):
+            self._report(
+                progress,
+                40 + int(index / total * 58),
+                f"正在同步到我的网盘（{index}/{total}）：{item['path']}",
+            )
+            self.api.upload_drive_file(item["path"], str(root / item["path"]))
+        self._report(progress, 100, "临时共享已发布，文件已同步到网盘")
 
     def _start_local_share(self, share: dict, manifest: dict, files: list[dict]) -> None:
         try:

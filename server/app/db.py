@@ -135,6 +135,19 @@ CREATE TABLE IF NOT EXISTS nps_hosts (
     FOREIGN KEY(owner_id) REFERENCES users(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_nps_hosts_owner ON nps_hosts(owner_id);
+
+CREATE TABLE IF NOT EXISTS drive_files (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    rel_path TEXT NOT NULL,
+    object_key TEXT NOT NULL,
+    size INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    UNIQUE(owner_id, rel_path),
+    FOREIGN KEY(owner_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_drive_owner ON drive_files(owner_id);
 """
 
 
@@ -248,6 +261,10 @@ def init_db() -> None:
             conn.execute("ALTER TABLE shares ADD COLUMN nps_task_id INTEGER")
         if "public_port" not in share_columns:
             conn.execute("ALTER TABLE shares ADD COLUMN public_port INTEGER")
+        if "mirror_to_drive" not in share_columns:
+            conn.execute(
+                "ALTER TABLE shares ADD COLUMN mirror_to_drive INTEGER NOT NULL DEFAULT 0"
+            )
         tunnel_columns = {
             row["name"] for row in conn.execute("PRAGMA table_info(nps_tunnels)").fetchall()
         }

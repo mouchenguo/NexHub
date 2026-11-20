@@ -21,6 +21,7 @@ from ..common import (
 )
 from ..config import settings
 from ..deps import get_current_user
+from ..drive_service import drive_prefix, register_drive_file
 from ..nps_api import NpsApiError, delete_tunnel
 from ..oss_service import oss_service
 from ..schemas import ShareCreateIn
@@ -103,8 +104,9 @@ def create_share(
     try:
         share_id = db.execute(
             "INSERT INTO shares(token, owner_id, name, description, storage_type, total_size, "
-            "file_count, status, local_url, nps_task_id, public_port, manifest_json, downloads, created_at) "
-            "VALUES(?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, 0, ?)",
+            "file_count, status, local_url, nps_task_id, public_port, manifest_json, downloads, "
+            "created_at, mirror_to_drive) "
+            "VALUES(?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, 0, ?, ?)",
             (
                 generate_token(18),
                 user["id"],
@@ -118,6 +120,7 @@ def create_share(
                 temp_route["public_port"] if temp_route else None,
                 json.dumps(manifest, ensure_ascii=False),
                 db.utcnow(),
+                1 if (payload.mirror_to_drive and payload.storage_type == "oss") else 0,
             ),
         )
     except Exception as exc:
@@ -175,8 +178,16 @@ async def upload_file(
                     raise HTTPException(status_code=413, detail="单个文件超过 5GB 限制")
                 handle.write(chunk)
         key, size = await run_in_threadpool(
-            oss_service.put_file, share["token"], relative, Path(temp_name)
+            oss_service.put_file,
+            drive_prefix(int(share["owner_id"]))
+            if int(share.get("mirror_to_drive") or 0)
+            else share["token"],
+            relative,
+            Path(temp_name),
         )
+        if int(share.get("mirror_to_drive") or 0):
+            # 复用同一次上传：共享与网盘指向同一个 OSS 对象，不重复上传
+            register_drive_file(int(share["owner_id"]), relative, key, size)
         db.execute(
             "INSERT INTO oss_objects(share_id, object_key, relative_path, size, created_at) "
             "VALUES(?, ?, ?, ?, ?) "

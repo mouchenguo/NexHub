@@ -837,6 +837,157 @@ def main() -> int:
             "/api/auth/login", json={"username": "rejected_user", "password": "rejected123"}
         )
         check(rejected_login.status_code == 403, "拒绝后禁止登录")
+        # ------------------------------------------------------------ 个人网盘
+        client.post(
+            "/api/auth/register",
+            json={"username": "drive_user", "password": "drive1234", "display_name": "网盘用户"},
+        )
+        drive_login_api = client.post(
+            "/api/auth/login", json={"username": "drive_user", "password": "drive1234"}
+        )
+        drive_headers = auth(drive_login_api.json()["token"])
+
+        upload = client.post(
+            "/api/drive/files",
+            params={"path": "notes/readme.txt"},
+            content=b"hello drive",
+            headers=drive_headers,
+        )
+        check(
+            upload.status_code == 200 and upload.json()["size"] == 11,
+            "客户端上传文件到网盘",
+        )
+        listing = client.get("/api/drive", headers=drive_headers).json()
+        item = listing["items"][0]
+        check(
+            item["name"] == "readme.txt"
+            and item["size"] == 11
+            and listing["drive_used"] == 11,
+            "网盘列表返回文件与用量",
+        )
+
+        drive_share = client.post(
+            f"/api/drive/files/{item['id']}/share",
+            json={"name": "网盘分享"},
+            headers=drive_headers,
+        )
+        drive_share_json = drive_share.json()
+        check(
+            drive_share.status_code == 200
+            and drive_share_json["storage_type"] == "oss"
+            and drive_share_json["public_url"].endswith(drive_share_json["token"]),
+            "从网盘直接创建共享（不重新上传）",
+        )
+        used_objects = db.query_all(
+            "SELECT object_key FROM oss_objects WHERE share_id = ?",
+            (drive_share_json["id"],),
+        )
+        check(
+            bool(used_objects) and "drive-" in used_objects[0]["object_key"],
+            "网盘共享复用原有 OSS 对象",
+        )
+        drive_download = client.get(
+            f"/api/shares/{drive_share_json['id']}/download",
+            params={"path": "readme.txt"},
+            headers=drive_headers,
+        )
+        check(
+            drive_download.status_code == 200 and drive_download.content == b"hello drive",
+            "网盘共享链接可下载原文件",
+        )
+
+        mirror_share = client.post(
+            "/api/shares",
+            json={
+                "name": "镜像共享",
+                "storage_type": "oss",
+                "mirror_to_drive": True,
+                "files": [{"path": "mirror.bin", "size": 5}],
+            },
+            headers=drive_headers,
+        )
+        mirror_id = mirror_share.json()["id"]
+        client.post(
+            f"/api/shares/{mirror_id}/files",
+            params={"path": "mirror.bin"},
+            content=b"12345",
+            headers=drive_headers,
+        )
+        mirror_list = client.get("/api/drive", headers=drive_headers).json()
+        mirror_names = {row["name"] for row in mirror_list["items"]}
+        mirror_keys = db.query_all(
+            "SELECT object_key FROM oss_objects WHERE share_id = ?", (mirror_id,)
+        )
+        check(
+            "mirror.bin" in mirror_names
+            and bool(mirror_keys)
+            and "drive-" in mirror_keys[0]["object_key"],
+            "OSS 共享勾选同步网盘：只上传一次",
+        )
+        check(
+            mirror_list["drive_used"] == 16 and mirror_list["used"] == 16,
+            "镜像共享不会重复计入配额",
+        )
+
+        client.cookies.clear()
+        anon_drive = client.get("/drive", follow_redirects=False)
+        check(
+            anon_drive.status_code == 303
+            and anon_drive.headers.get("location") == "/drive/login",
+            "网页网盘未登录跳转登录页",
+        )
+        drive_login_page = client.get("/drive/login")
+        check(
+            drive_login_page.status_code == 200 and "登录我的网盘" in drive_login_page.text,
+            "网页网盘登录页可访问",
+        )
+        web_login = client.post(
+            "/drive/login",
+            data={"username": "drive_user", "password": "drive1234"},
+            follow_redirects=False,
+        )
+        check(
+            web_login.status_code == 303 and "nexhub_admin" in web_login.cookies,
+            "网页网盘登录写入会话 Cookie",
+        )
+        bad_login = client.post(
+            "/drive/login",
+            data={"username": "drive_user", "password": "wrong-pass"},
+            follow_redirects=False,
+        )
+        check(bad_login.status_code == 401, "网页网盘拒绝错误密码")
+        web_page = client.get("/drive", cookies=web_login.cookies)
+        check(
+            web_page.status_code == 200
+            and "我的网盘" in web_page.text
+            and "readme.txt" in web_page.text,
+            "网页网盘展示文件列表",
+        )
+        web_upload = client.post(
+            "/drive/upload",
+            files={"files": ("web.txt", b"web-data", "text/plain")},
+            data={"target_path": ""},
+            cookies=web_login.cookies,
+            follow_redirects=False,
+        )
+        check(web_upload.status_code == 303, "网页上传文件到网盘")
+        after_web = client.get("/api/drive", headers=drive_headers).json()
+        web_row = next((row for row in after_web["items"] if row["name"] == "web.txt"), None)
+        check(web_row is not None, "网页上传的文件出现在网盘")
+
+        if web_row:
+            client.post(
+                "/drive/delete",
+                data={"file_id": web_row["id"]},
+                cookies=web_login.cookies,
+                follow_redirects=False,
+            )
+        final_list = client.get("/api/drive", headers=drive_headers).json()
+        check(
+            all(row["name"] != "web.txt" for row in final_list["items"]),
+            "网页删除网盘文件",
+        )
+
         settings_update = client.post(
             "/admin/settings",
             data={"web_base": "", "registration_auto_approve": "1"},

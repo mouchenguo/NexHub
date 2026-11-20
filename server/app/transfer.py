@@ -7,6 +7,7 @@ import requests
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 
+from . import db
 from .common import normalize_rel_path, share_manifest
 from .oss_service import oss_service
 
@@ -38,7 +39,11 @@ def stream_share_file(share: dict, relative_path: str):
     }
 
     if share["storage_type"] == "oss":
-        key = oss_service.object_key(share["token"], item["path"])
+        row = db.query_one(
+            "SELECT object_key FROM oss_objects WHERE share_id = ? AND relative_path = ?",
+            (share["id"], item["path"]),
+        )
+        key = (row or {}).get("object_key") or oss_service.object_key(share["token"], item["path"])
         if not oss_service.exists(key):
             raise HTTPException(status_code=404, detail="OSS 缓存缺失，可能已过期或被清理")
         headers["Content-Length"] = str(item.get("size") or 0)

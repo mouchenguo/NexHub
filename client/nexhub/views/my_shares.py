@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QCloseEvent
+from PyQt6.QtCore import Qt, QUrl, pyqtSignal
+from PyQt6.QtGui import QCloseEvent, QDesktopServices
 from PyQt6.QtWidgets import (
     QApplication,
     QButtonGroup,
@@ -18,6 +18,7 @@ from qfluentwidgets import (
     BodyLabel,
     CaptionLabel,
     CardWidget,
+    CheckBox,
     ComboBox,
     FluentIcon as FIF,
     FluentStyleSheet,
@@ -42,7 +43,7 @@ from ..widgets.common import (
     make_card,
     status_pill,
 )
-from ..workers import FunctionWorker, ShareCreateWorker
+from ..workers import DriveUploadWorker, FunctionWorker, ShareCreateWorker
 from .base import BasePage
 
 
@@ -58,7 +59,7 @@ class CreateShareDialog(QDialog):
         self._scan_generation = 0
         self._done = False
         FluentStyleSheet.DIALOG.apply(self)
-        self.setWindowTitle("NexHub · 发布共享")
+        self.setWindowTitle("NexHub · 共享文件")
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self.setMinimumWidth(680)
         self._build()
@@ -70,7 +71,7 @@ class CreateShareDialog(QDialog):
         layout.setContentsMargins(24, 20, 24, 20)
         layout.setSpacing(12)
 
-        layout.addWidget(TitleLabel("发布新共享"))
+        layout.addWidget(TitleLabel("共享文件"))
         layout.addWidget(
             BodyLabel("小于 5GB 可选择 OSS 长期缓存；超过 5GB 自动使用临时穿透。")
         )
@@ -121,6 +122,14 @@ class CreateShareDialog(QDialog):
         options.addWidget(self.oss_card, 1)
         options.addWidget(self.temp_card, 1)
         layout.addLayout(options)
+
+        self.mirror_check = CheckBox("同时上传到我的网盘")
+        self.mirror_check.setChecked(True)
+        layout.addWidget(self.mirror_check)
+        self.mirror_hint = CaptionLabel("")
+        self.mirror_hint.setWordWrap(True)
+        layout.addWidget(self.mirror_hint)
+
         self.oss_radio.toggled.connect(self._sync_options)
         self.temp_radio.toggled.connect(self._sync_options)
         if not self.ctx.online:
@@ -138,6 +147,7 @@ class CreateShareDialog(QDialog):
         self.description_edit = LineEdit()
         self.description_edit.setPlaceholderText("共享说明（可选，将展示在共享广场）")
         layout.addWidget(self.description_edit)
+        self._sync_options()
 
         self.progress = ProgressBar()
         self.progress.setRange(0, 100)
@@ -169,7 +179,7 @@ class CreateShareDialog(QDialog):
         footer.addStretch(1)
         self.cancel_button = make_button("取消", on_click=self.reject)
         self.publish_button = make_button(
-            "发布共享", primary=True, icon=FIF.SHARE, on_click=self._publish
+            "开始共享", primary=True, icon=FIF.SHARE, on_click=self._publish
         )
         footer.addWidget(self.cancel_button)
         footer.addWidget(self.publish_button)
@@ -276,6 +286,20 @@ class CreateShareDialog(QDialog):
         # RadioButton 本身表达选中状态，卡片保持 Fluent 原生样式
         if not self.oss_radio.isEnabled():
             self.temp_radio.setChecked(True)
+        is_temp = not self.oss_radio.isChecked()
+        self.mirror_check.setEnabled(is_temp and self.ctx.online)
+        if not is_temp:
+            # OSS 长期共享本身就是网盘对象，复用同一次上传，避免重复流量
+            self.mirror_check.setChecked(False)
+            self.mirror_hint.setText(
+                "OSS 长期共享会直接出现在我的网盘，只上传一次，不会重复占用流量。"
+            )
+        elif not self.ctx.online:
+            self.mirror_hint.setText("离线体验模式无法同步到网盘。")
+        else:
+            self.mirror_hint.setText(
+                "临时穿透不落云端；勾选后会额外上传一份到我的网盘，网页端可随时下载。"
+            )
 
     # ------------------------------------------------------------------
     def _publish(self) -> None:
@@ -318,6 +342,7 @@ class CreateShareDialog(QDialog):
             self.path_edit.text().strip(),
             storage,
             self.description_edit.text().strip(),
+            mirror_to_drive=self.mirror_check.isChecked() and storage == "temp",
             parent=self,
         )
         self._create_worker.progress_changed.connect(self._on_progress)
@@ -420,12 +445,15 @@ class CreateShareDialog(QDialog):
 
 class MySharesPage(BasePage):
     page_id = "my_shares"
-    title = "我的共享"
-    subtitle = "管理你发布的长期缓存与临时穿透共享"
+    title = "我的网盘"
+    subtitle = "上传文件到网盘（OSS），随时共享；临时穿透可勾选同步进网盘"
 
     def __init__(self, ctx, parent=None):
         self._shares: list[dict] = []
+        self._drive: dict = {}
         self._worker: FunctionWorker | None = None
+        self._drive_worker: FunctionWorker | None = None
+        self._upload_worker = None
         self._action_worker: FunctionWorker | None = None
         super().__init__(ctx, parent)
 
@@ -450,15 +478,47 @@ class MySharesPage(BasePage):
         row.addWidget(self.status_filter)
         row.addStretch(1)
         row.addWidget(
+            make_button(
+                "网页网盘",
+                transparent=True,
+                icon=FIF.LINK,
+                on_click=self._open_web_drive,
+            )
+        )
+        row.addWidget(
             make_button("刷新", transparent=True, icon=FIF.SYNC, on_click=self.refresh)
         )
         row.addWidget(
             make_button(
-                "新建共享", primary=True, icon=FIF.ADD, on_click=self._open_create
+                "上传文件至网盘",
+                icon=FIF.UP,
+                on_click=self._upload_to_drive,
+            )
+        )
+        row.addWidget(
+            make_button(
+                "共享文件", primary=True, icon=FIF.SHARE, on_click=self._open_create
             )
         )
         toolbar_layout.addLayout(row)
         self.content_layout.addWidget(toolbar)
+
+        drive_card, drive_layout = make_card()
+        drive_header = QHBoxLayout()
+        drive_header.setSpacing(8)
+        drive_header.addWidget(StrongBodyLabel("网盘文件"))
+        drive_header.addWidget(CaptionLabel("存在服务器 OSS，可随时共享或删除"))
+        drive_header.addStretch(1)
+        self.drive_usage = CaptionLabel("正在载入网盘...")
+        drive_header.addWidget(self.drive_usage)
+        drive_layout.addLayout(drive_header)
+
+        self.drive_host = QWidget()
+        self.drive_layout = QVBoxLayout(self.drive_host)
+        self.drive_layout.setContentsMargins(0, 0, 0, 0)
+        self.drive_layout.setSpacing(4)
+        drive_layout.addWidget(self.drive_host)
+        self.content_layout.addWidget(drive_card)
 
         self.summary = CaptionLabel("正在载入共享...")
         self.content_layout.addWidget(self.summary)
@@ -471,12 +531,12 @@ class MySharesPage(BasePage):
 
         self.empty = EmptyState(
             "还没有共享",
-            "发布文件或文件夹后，好友可在共享广场浏览与选择性下载。",
+            "在「上传文件至网盘」把文件存到云上，或用「共享文件」发布临时/长期共享。",
             FIF.SHARE,
             make_button(
-                "发布第一个共享",
+                "共享文件",
                 primary=True,
-                icon=FIF.ADD,
+                icon=FIF.SHARE,
                 on_click=self._open_create,
             ),
         )
@@ -491,10 +551,148 @@ class MySharesPage(BasePage):
     def refresh(self) -> None:
         if self._worker and self._worker.isRunning():
             return
+        self._load_drive()
         self._worker = FunctionWorker(self.ctx.shares.list_my_shares, parent=self)
         self._worker.succeeded.connect(self._on_loaded)
         self._worker.failed.connect(self._on_error)
         self._worker.start()
+
+    # ------------------------------------------------------------------ 网盘
+    def _load_drive(self) -> None:
+        if not self.ctx.online:
+            self.drive_usage.setText("离线体验模式不支持网盘")
+            return
+        if self._drive_worker and self._drive_worker.isRunning():
+            return
+        self._drive_worker = FunctionWorker(self.ctx.api.drive_list, parent=self)
+        self._drive_worker.succeeded.connect(self._on_drive_loaded)
+        self._drive_worker.failed.connect(
+            lambda message: self.drive_usage.setText(f"网盘载入失败：{message}")
+        )
+        self._drive_worker.start()
+
+    def _on_drive_loaded(self, payload: dict) -> None:
+        self._drive = payload if isinstance(payload, dict) else {}
+        self._render_drive()
+
+    def _render_drive(self) -> None:
+        clear_layout(self.drive_layout)
+        items = [item for item in (self._drive.get("items") or []) if isinstance(item, dict)]
+        used = int(self._drive.get("used") or 0)
+        quota = int(self._drive.get("quota") or 0)
+        self.drive_usage.setText(
+            f"{len(items)} 个文件 · 已用 {human_size(used)} / {human_size(quota)}"
+        )
+        if not items:
+            self.drive_layout.addWidget(CaptionLabel("网盘还是空的，点右上角「上传文件至网盘」开始。"))
+            return
+        for item in items[:80]:
+            row = QWidget()
+            layout = QHBoxLayout(row)
+            layout.setContentsMargins(0, 4, 0, 4)
+            layout.setSpacing(10)
+            layout.addWidget(icon_widget(FIF.DOCUMENT, 18))
+            name = CaptionLabel(str(item.get("name") or ""))
+            name.setMinimumWidth(220)
+            layout.addWidget(name, 1)
+            layout.addWidget(CaptionLabel(human_size(int(item.get("size") or 0))))
+            layout.addWidget(CaptionLabel(relative_time(item.get("created_at"))))
+            layout.addWidget(
+                make_button(
+                    "共享",
+                    transparent=True,
+                    icon=FIF.SHARE,
+                    on_click=lambda _=None, data=item: self._share_drive_item(data),
+                )
+            )
+            layout.addWidget(
+                make_button(
+                    "删除",
+                    transparent=True,
+                    icon=FIF.DELETE,
+                    on_click=lambda _=None, data=item: self._delete_drive_item(data),
+                )
+            )
+            self.drive_layout.addWidget(row)
+
+    def _upload_to_drive(self) -> None:
+        if not self.ctx.online:
+            self.ctx.notify("离线体验模式不支持上传网盘", "warning")
+            return
+        paths, _ = QFileDialog.getOpenFileNames(self, "选择要上传到网盘的文件")
+        if not paths:
+            return
+        files: list[tuple[str, str]] = []
+        for raw in paths:
+            path = Path(raw)
+            files.append((str(path), path.name))
+        self._upload_worker = DriveUploadWorker(self.ctx.api, files, parent=self)
+        self._upload_worker.progress_changed.connect(self._on_upload_progress)
+        self._upload_worker.succeeded.connect(self._on_upload_done)
+        self._upload_worker.failed.connect(self._on_upload_failed)
+        self.drive_usage.setText("正在上传到网盘...")
+        self._upload_worker.start()
+
+    def _on_upload_progress(self, percent: int, message: str) -> None:
+        self.drive_usage.setText(f"{message}（{percent}%）")
+
+    def _on_upload_done(self, result: dict) -> None:
+        count = int((result or {}).get("count") or 0)
+        self.ctx.notify(f"已上传 {count} 个文件到网盘", "success")
+        self._load_drive()
+
+    def _on_upload_failed(self, message: str) -> None:
+        self.drive_usage.setText("网盘上传失败")
+        self.ctx.notify(f"上传网盘失败：{message}", "error")
+
+    def _share_drive_item(self, item: dict) -> None:
+        if self._action_worker and self._action_worker.isRunning():
+            return
+        self._action_worker = FunctionWorker(
+            self.ctx.api.share_drive_file,
+            int(item.get("id") or 0),
+            "",
+            "",
+            parent=self,
+        )
+        self._action_worker.succeeded.connect(self._on_drive_shared)
+        self._action_worker.failed.connect(
+            lambda message: self.ctx.notify(f"创建共享失败：{message}", "error")
+        )
+        self._action_worker.start()
+
+    def _on_drive_shared(self, share: dict) -> None:
+        link = self.ctx.shares.public_link(share)
+        QApplication.clipboard().setText(link)
+        self.ctx.notify(
+            f"共享已创建，链接已复制：{link}" if link else "共享已创建", "success"
+        )
+        self.refresh()
+
+    def _delete_drive_item(self, item: dict) -> None:
+        if not ask_confirm(self, f"从网盘删除「{item.get('name', '')}」？引用它的共享会被取消。"):
+            return
+        if self._action_worker and self._action_worker.isRunning():
+            return
+        self._action_worker = FunctionWorker(
+            self.ctx.api.delete_drive_file, int(item.get("id") or 0), parent=self
+        )
+        self._action_worker.succeeded.connect(self._on_drive_deleted)
+        self._action_worker.failed.connect(
+            lambda message: self.ctx.notify(f"删除失败：{message}", "error")
+        )
+        self._action_worker.start()
+
+    def _on_drive_deleted(self, _result) -> None:
+        self.ctx.notify("已从网盘删除", "success")
+        self.refresh()
+
+    def _open_web_drive(self) -> None:
+        base = (self.ctx.config.server_url or "").rstrip("/")
+        if not base:
+            self.ctx.notify("请先在「设置」里填写服务器地址", "warning")
+            return
+        QDesktopServices.openUrl(QUrl(f"{base}/drive"))
 
     def _on_loaded(self, shares: list[dict]) -> None:
         self._shares = shares

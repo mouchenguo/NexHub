@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>我的网盘 · NexHub</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #f5f7fb; color: #0f172a;
+               font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; }
+        header { background: #fff; border-bottom: 1px solid #e6ecf3; padding: 14px 28px;
+                 display: flex; align-items: center; gap: 14px; position: sticky; top: 0; z-index: 5; }
+        .mark { width: 30px; height: 30px; border-radius: 9px; background: #2563eb; color: #fff;
+                display: grid; place-items: center; font-weight: 700; }
+        header h1 { font-size: 16px; margin: 0; }
+        header .who { margin-left: auto; font-size: 12.5px; color: #64748b; }
+        header a { color: #2563eb; text-decoration: none; font-size: 12.5px; }
+        main { max-width: 1020px; margin: 22px auto 60px; padding: 0 20px; display: grid; gap: 16px; }
+        .card { background: #fff; border: 1px solid #e6ecf3; border-radius: 14px; padding: 18px 20px; }
+        .card h2 { font-size: 14px; margin: 0 0 4px; }
+        .card p.sub { margin: 0 0 14px; font-size: 12px; color: #64748b; }
+        .meter { height: 8px; border-radius: 999px; background: #eef2f7; overflow: hidden; margin: 10px 0 6px; }
+        .meter > i { display: block; height: 100%; background: #2563eb; }
+        .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+        input[type=text], input[type=file] { font-size: 13px; padding: 8px 10px; border: 1px solid #d8e0ea;
+                border-radius: 8px; background: #fff; }
+        button { font-size: 13px; padding: 9px 16px; border-radius: 8px; border: none; cursor: pointer;
+                 background: #2563eb; color: #fff; font-weight: 600; }
+        button.ghost { background: #fff; color: #2563eb; border: 1px solid #cfdcee; font-weight: 500; }
+        button.danger { background: #fff; color: #b42318; border: 1px solid #f2c8c4; font-weight: 500; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { text-align: left; padding: 9px 8px; border-bottom: 1px dashed #edf1f6; }
+        th { color: #64748b; font-weight: 500; font-size: 12px; }
+        tr:last-child td { border-bottom: none; }
+        .name { font-weight: 500; word-break: break-all; }
+        .muted { color: #94a3b8; }
+        .flash { border-radius: 10px; padding: 10px 13px; font-size: 12.5px; }
+        .flash.success { background: #eafaf0; color: #0f7b46; }
+        .flash.error { background: #fdecec; color: #b42318; }
+        .empty { color: #94a3b8; font-size: 13px; padding: 14px 0; }
+        .actions { display: flex; gap: 12px; align-items: center; }
+        .actions a { color: #2563eb; text-decoration: none; font-size: 12.5px; }
+    </style>
+</head>
+<body>
+<header>
+    <span class="mark">N</span>
+    <h1>我的网盘</h1>
+    <span class="who">{{ user.display_name or user.username }}</span>
+    <a href="/drive/logout">退出</a>
+</header>
+<main>
+    {% if message %}
+    <div class="flash {{ message_type }}">{{ message }}</div>
+    {% endif %}
+
+    <section class="card">
+        <h2>存储用量</h2>
+        <p class="sub">文件保存在服务器 OSS；共享时可直接引用网盘文件，不会重复上传。</p>
+        <div class="meter"><i style="width: {{ (used / quota * 100) if quota else 0 }}%"></i></div>
+        <div class="row"><span class="muted">已用 {{ used | filesize }} / {{ quota | filesize }}</span></div>
+    </section>
+
+    <section class="card">
+        <h2>上传文件</h2>
+        <p class="sub">可多选；同名文件会覆盖网盘中的旧版本。</p>
+        <form method="post" action="/drive/upload" enctype="multipart/form-data" class="row">
+            <input type="file" name="files" multiple required>
+            <input type="text" name="target_path" placeholder="可选：子目录，如 photos/2026">
+            <button type="submit">上传到网盘</button>
+        </form>
+    </section>
+
+    <section class="card">
+        <h2>我的文件</h2>
+        <p class="sub">勾选文件后可一键创建共享链接；删除会同时取消引用该文件的共享。</p>
+        {% if items %}
+        <form method="post" action="/drive/share">
+            <table>
+                <thead>
+                <tr>
+                    <th style="width:34px"></th>
+                    <th>文件名</th>
+                    <th style="width:110px">大小</th>
+                    <th style="width:160px">上传时间</th>
+                    <th style="width:150px">操作</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for item in items %}
+                <tr>
+                    <td><input type="checkbox" name="file_ids" value="{{ item.id }}"></td>
+                    <td class="name">{{ item.name }}</td>
+                    <td>{{ item.size | filesize }}</td>
+                    <td class="muted">{{ item.created_at | dt }}</td>
+                    <td class="actions">
+                        <a href="/api/drive/files/{{ item.id }}/download">下载</a>
+                        <button class="danger" type="submit" formaction="/drive/delete"
+                                name="file_id" value="{{ item.id }}"
+                                onclick="return confirm('删除网盘文件？引用它的共享会被取消。')">删除</button>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            <div class="row" style="margin-top:14px">
+                <input type="text" name="name" placeholder="共享名称（可选）" style="min-width:220px">
+                <input type="text" name="description" placeholder="说明（可选）" style="min-width:220px">
+                <button type="submit">共享所选文件</button>
+                <span class="muted">创建后可直接复制分享链接</span>
+            </div>
+        </form>
+        {% else %}
+        <div class="empty">网盘还是空的，先上传几个文件吧。</div>
+        {% endif %}
+    </section>
+</main>
+</body>
+</html>

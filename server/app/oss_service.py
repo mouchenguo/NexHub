@@ -188,6 +188,20 @@ class OssService:
         target = self.local_root / key
         return target if target.is_file() else None
 
+    def delete_object(self, key: str) -> None:
+        with self._lock:
+            if self.remote:
+                try:
+                    self.bucket.delete_object(key)
+                except Exception:
+                    pass
+                return
+            target = self.local_root / key
+            try:
+                target.unlink()
+            except OSError:
+                pass
+
     def exists(self, key: str) -> bool:
         if self.remote:
             try:

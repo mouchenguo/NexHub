@@ -141,6 +141,33 @@ class ApiClient:
     def cancel_share(self, share_id: int) -> dict:
         return self._request("POST", f"/api/shares/{share_id}/cancel")
 
+    # ------------------------------------------------------------------ 我的网盘
+    def drive_list(self) -> dict:
+        return self._request("GET", "/api/drive")
+
+    def upload_drive_file(self, relative_path: str, file_path: str) -> dict:
+        with open(file_path, "rb") as handle:
+            return self._request(
+                "POST",
+                "/api/drive/files",
+                params={"path": relative_path},
+                data=handle,
+                headers={"Content-Type": "application/octet-stream"},
+                timeout=3600,
+            )
+
+    def share_drive_file(
+        self, file_id: int, name: str = "", description: str = ""
+    ) -> dict:
+        return self._request(
+            "POST",
+            f"/api/drive/files/{file_id}/share",
+            json={"name": name, "description": description},
+        )
+
+    def delete_drive_file(self, file_id: int) -> dict:
+        return self._request("DELETE", f"/api/drive/files/{file_id}")
+
     def delete_share(self, share_id: int) -> dict:
         return self._request("DELETE", f"/api/shares/{share_id}")
 

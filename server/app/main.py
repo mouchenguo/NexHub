@@ -21,6 +21,7 @@ from .routers import (
     auth,
     dashboard,
     devices,
+    drive,
     nps_hosts_api,
     public,
     shares,
@@ -66,6 +67,7 @@ for router in (
     public.router,
     admin_api.router,
     admin.router,
+    drive.router,
 ):
     app.include_router(router)
 
